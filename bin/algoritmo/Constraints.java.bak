@@ -1,0 +1,315 @@
+package algoritmo;
+
+import gurobi.GRB;
+import gurobi.GRBException;
+import gurobi.GRBLinExpr;
+import gurobi.GRBModel;
+import instancias.Instancia_Rahim;
+import instancias.Variaveis_Rahim;
+
+public class Constraints {
+
+
+	public void constr2(Instancia_Rahim inst,GRBModel model) throws GRBException{
+		// Add constraint: Sum_v(Sum_i(Xijt_v)) <= 1
+
+		GRBLinExpr expr = new GRBLinExpr();		
+		for (int j = 1; j < inst.getS()+1; j++) {//Para cada j
+			for (int t = 0; t < inst.getT(); t++) { //Para cada t
+
+				expr = new GRBLinExpr();//Cria Expressão
+
+				for (int v = 0; v < inst.getV(); v++) {// Somatória de v	
+					for (int i = 0; i < inst.getS()+1; i++) {// Somatória de i
+						expr.addTerm(1.0, model.getVarByName("X"+i+j+t+"_"+v)); 
+					}
+				}
+				model.addConstr(expr, GRB.LESS_EQUAL, 1, "c2_j"+j+"t"+t);				
+			}
+		}	
+	}
+	public void constr2_0(Instancia_Rahim inst,GRBModel model,Variaveis_Rahim var) throws GRBException{
+		// Add constraint: Sum_v(Sum_i(Xijt_v)) <= 1
+
+		GRBLinExpr expr = new GRBLinExpr();		
+		for (int j = 1; j < inst.getS()+1; j++) {//Para cada j
+			for (int t = 1; t < inst.getT(); t++) { //Para cada t
+
+				expr = new GRBLinExpr();//Cria Expressão
+
+				for (int v = 0; v < inst.getV(); v++) {// Somatória de v	
+					for (int i = 0; i < inst.getS()+1; i++) {// Somatória de i
+						//						expr.addTerm(1.0, model.getVarByName("X"+i+j+t+"_"+v));
+						expr.addConstant(1.0 * var.getXijt_v()[i][j][t][v]);
+					}
+				}
+				model.addConstr(expr, GRB.LESS_EQUAL, 1, "c2_0_j"+j+"t"+t);				
+			}
+		}	
+	}
+
+	public void constr3(Instancia_Rahim inst,GRBModel model) throws GRBException{
+		GRBLinExpr expr = new GRBLinExpr();
+		for (int t = 1; t < inst.getT(); t++) { //Para cada t
+			for (int v = 0; v < inst.getV(); v++) {// Para cada v	
+				for (int j = 0; j < inst.getS()+1; j++) {//Para cada j
+
+					expr = new GRBLinExpr();//Cria Expressão
+					for (int i = 0; i < inst.getS()+1; i++) {// Somatória de i
+						expr.addTerm(1.0, model.getVarByName("X"+i+j+t+"_"+v)); 
+					}
+					for (int k = 0; k < inst.getS()+1; k++) {// Somatória de k
+						expr.addTerm(-1.0, model.getVarByName("X"+j+k+t+"_"+v)); 
+					}	
+					model.addConstr(expr, GRB.EQUAL, 0, "c3_j"+j+"t"+t+"v"+v);
+				}							
+			}
+		}	
+	}
+	public void constr3_0(Instancia_Rahim inst,GRBModel model,Variaveis_Rahim var) throws GRBException{
+		GRBLinExpr expr = new GRBLinExpr();
+		int c = 0;
+		for (int t = 1; t < inst.getT(); t++) { //Para cada t
+			for (int v = 0; v < inst.getV(); v++) {// Para cada v	
+				for (int j = 0; j < inst.getS()+1; j++) {//Para cada j
+
+					expr = new GRBLinExpr();//Cria Expressão
+					for (int i = 0; i < inst.getS()+1; i++) {// Somatória de i
+						expr.addConstant(1.0* var.getXijt_v()[i][j][t][v]); 
+						c += 1.0*var.getXijt_v()[i][j][t][v];
+						//						expr.addTerm(1.0, model.getVarByName("X"+i+j+t+"_"+v)); 
+					}
+					for (int k = 0; k < inst.getS()+1; k++) {// Somatória de k
+						expr.addConstant(-1.0* var.getXijt_v()[j][k][t][v]); 
+						c += -1.0* var.getXijt_v()[j][k][t][v];
+						//						expr.addTerm(-1.0, model.getVarByName("X"+j+k+t+"_"+v)); 
+					}	
+					model.addConstr(expr, GRB.EQUAL, 0, "c3_0_j"+j+"t"+t+"v"+v);
+				}							
+			}
+		}	
+	}
+
+
+	public void constr4(Instancia_Rahim inst,GRBModel model) throws GRBException{
+
+		GRBLinExpr expr = new GRBLinExpr();
+		for (int t = 1; t < inst.getT(); t++) { //Para cada t
+			for (int v = 0; v < inst.getV(); v++) {// Para cada v	
+				expr = new GRBLinExpr();//Cria Expressão
+				for (int j = 0; j < inst.getS()+1; j++) {// Somatória de j
+					for (int i = 0; i < inst.getS()+1; i++) {// Somatória de i
+						expr.addTerm(inst.getΘ_ij()[i][j],model.getVarByName("X"+i+j+t+"_"+v));						
+					}					
+					model.addConstr(expr, GRB.LESS_EQUAL, inst.getΤt(), "c4_t"+t+"v"+v);
+				}							
+			}
+		}	
+	}
+	public void constr4_0(Instancia_Rahim inst,GRBModel model,Variaveis_Rahim var) throws GRBException{
+
+		GRBLinExpr expr = new GRBLinExpr();
+		for (int t = 1; t < inst.getT(); t++) { //Para cada t
+			for (int v = 0; v < inst.getV(); v++) {// Para cada v	
+				expr = new GRBLinExpr();//Cria Expressão
+				Double sum = 0D;
+				for (int j = 0; j < inst.getS()+1; j++) {// Somatória de j
+					for (int i = 0; i < inst.getS()+1; i++) {// Somatória de i
+						//						expr.addTerm(inst.getΘ_ij()[i][j],model.getVarByName("X"+i+j+t+"_"+v));						
+						expr.addConstant(inst.getΘ_ij()[i][j]*  var.getXijt_v()[i][j][t][v]);	
+						sum +=inst.getΘ_ij()[i][j]*  var.getXijt_v()[i][j][t][v];
+					}					
+					model.addConstr(expr, GRB.LESS_EQUAL, inst.getΤt(), "c4_0_t"+t+"v"+v);
+				}							
+			}
+		}	
+	}
+
+	public void constr5(Instancia_Rahim inst,GRBModel model) throws GRBException{
+
+		GRBLinExpr expr = new GRBLinExpr();
+		for (int j = 1; j < inst.getS()+1; j++) { //Para cada j
+			for (int t = 1; t < inst.getT(); t++) { //Para cada t
+
+				expr = new GRBLinExpr();//Cria Expressão
+				for (int v = 0; v < inst.getV(); v++) {// Somatória de v	
+					for (int i = 0; i < inst.getS()+1; i++) {// Somatória de i
+						expr.addTerm(1,model.getVarByName("Q"+i+j+t+"_"+v));						
+					}	
+				}
+
+				for (int v = 0; v < inst.getV(); v++) {// Somatória de v	
+					for (int k = 0; k < inst.getS()+1; k++) {// Somatória de k
+						expr.addTerm(-1,model.getVarByName("Q"+j+k+t+"_"+v));						
+					}	
+				}
+				model.addConstr(expr, GRB.EQUAL, model.getVarByName("q"+j+t), "c5_j"+j+"t"+t);
+			}
+		}	
+	}
+
+	public void constr6(Instancia_Rahim inst,GRBModel model) throws GRBException{	
+		for (int j = 0; j < inst.getS()+1; j++) { //Para cada j
+			for (int t = 1; t < inst.getT(); t++) { //Para cada t
+				for (int v = 0; v < inst.getV(); v++) {//Para cada v
+					for (int i = 0; i < inst.getS()+1; i++) {//Para cada i
+						GRBLinExpr expr1 = new GRBLinExpr();//Cria Expressão
+						GRBLinExpr expr2 = new GRBLinExpr();//Cria Expressão
+						expr1.addTerm(1,model.getVarByName("Q"+i+j+t+"_"+v));	
+
+						expr2.addTerm(inst.getKv(),model.getVarByName("X"+i+j+t+"_"+v));						
+						model.addConstr(expr1, GRB.LESS_EQUAL, expr2, "c6_i"+i+"j"+j+"t"+t+"v"+v);
+					}
+				}
+			}
+		}	
+	}
+	public void constr6_0(Instancia_Rahim inst,GRBModel model,Variaveis_Rahim var) throws GRBException{	
+
+		for (int j = 0; j < inst.getS()+1; j++) { //Para cada j
+			for (int t = 1; t < inst.getT(); t++) { //Para cada t
+				for (int v = 0; v < inst.getS(); v++) {//Para cada v
+					for (int i = 0; i < inst.getS()+1; i++) {//Para cada i
+
+						GRBLinExpr expr1 = new GRBLinExpr();//Cria Expressão
+						GRBLinExpr expr2 = new GRBLinExpr();//Cria Expressão
+						expr1.addTerm(1,model.getVarByName("Q"+i+j+t+"_"+v));	
+
+						//						expr2.addTerm(inst.getKv(),model.getVarByName("X"+i+j+t+"_"+v));	
+						expr2.addConstant(inst.getKv()* var.getXijt_v()[i][j][t][v]);	
+						model.addConstr(expr1, GRB.LESS_EQUAL, expr2, "c6_i"+i+"j"+j+"t"+t+"v"+v);
+					}
+				}
+			}
+		}	
+	}
+
+	public void constr7(Instancia_Rahim inst,GRBModel model) throws GRBException{	
+		for (int j = 1; j < inst.getS()+1; j++) { //Para cada j
+			for (int t = 1; t < inst.getT(); t++) { //Para cada t
+
+				GRBLinExpr expr1 = new GRBLinExpr();//Cria Expressão
+				expr1.addTerm(1,model.getVarByName("I0"+(t-1)));
+				expr1.addConstant(inst.getRrt()[t]);
+				expr1.addTerm(-1,model.getVarByName("I0"+(t)));
+
+				GRBLinExpr expr2 = new GRBLinExpr();//Cria Expressão
+				for (int j1 = 1; j1 < inst.getS()+1; j1++) { //Somatória de j
+					expr2.addTerm(1,model.getVarByName("q"+j+t));	
+					//					expr2.addTerm(inst.getΤt(),	model.getVarByName("q"+j+t));	
+				}				
+				model.addConstr(expr1, GRB.EQUAL, expr2, "c7_j"+j+"t"+t);
+			}
+		}	
+	}
+
+	public void constr8(Instancia_Rahim inst,GRBModel model) throws GRBException{	
+		for (int j = 1; j < inst.getS()+1; j++) { //Para cada j
+			for (int t = 1; t < inst.getT(); t++) { //Para cada t
+
+				GRBLinExpr expr1 = new GRBLinExpr();//Cria Expressão
+				expr1.addTerm(1,model.getVarByName("I"+j+(t-1)));
+				expr1.addTerm(1,model.getVarByName("q"+j+t));
+				expr1.addTerm(-1,model.getVarByName("I"+j+(t)));
+
+				GRBLinExpr expr2 = new GRBLinExpr();//Cria Expressão
+				expr2.addConstant(inst.getΤt()*inst.getD_jt()[j][t]);		
+
+				model.addConstr(expr1, GRB.EQUAL, expr2, "c8_j"+j+"t"+t);
+			}
+		}	
+	}
+
+	public void constr9(Instancia_Rahim inst,GRBModel model) throws GRBException{	
+		for (int j = 1; j < inst.getS()+1; j++) { //Para cada j
+
+			GRBLinExpr expr1 = new GRBLinExpr();//Cria Expressão
+			expr1.addTerm(1,model.getVarByName("I"+j+(0)));
+			GRBLinExpr expr2 = new GRBLinExpr();//Cria Expressão
+			expr2.addTerm(1,model.getVarByName("I"+j+(inst.getT()-1)));	
+
+			model.addConstr(expr1, GRB.LESS_EQUAL, expr2, "c9_j"+j);
+		}	
+	}
+
+	public void constr10(Instancia_Rahim inst,GRBModel model) throws GRBException{	
+		for (int j = 1; j < inst.getS()+1; j++) { //Para cada j
+			for (int t = 1; t < inst.getT(); t++) { //Para cada t
+				for (int v = 0; v < inst.getV(); v++) { //Para cada v
+
+					GRBLinExpr expr1 = new GRBLinExpr();//Cria Expressão
+					expr1.addTerm(1,model.getVarByName("X0"+j+t+"_"+v));
+
+					GRBLinExpr expr2 = new GRBLinExpr();//Cria Expressão
+					expr2.addTerm(1,model.getVarByName("Y"+t+"_"+v));	
+
+					model.addConstr(expr1, GRB.LESS_EQUAL, expr2, "c10_j"+j+"t"+t+"v"+v);
+				}
+			}	
+		}
+	}
+	public void constr10_0(Instancia_Rahim inst,GRBModel model, Variaveis_Rahim var) throws GRBException{	
+		for (int j = 1; j < inst.getS()+1; j++) { //Para cada j
+			for (int t = 0; t < inst.getT(); t++) { //Para cada t
+				for (int v = 0; v < inst.getV(); v++) { //Para cada v
+
+					GRBLinExpr expr1 = new GRBLinExpr();//Cria Expressão
+					expr1.addConstant(1* var.getXijt_v()[0][j][t][v]);
+					//					expr1.addTerm(1,model.getVarByName("Xr"+j+t+"_"+v));
+
+					GRBLinExpr expr2 = new GRBLinExpr();//Cria Expressão
+					expr2.addConstant(1* var.getYt_v()[t][v]);	
+					//					expr2.addTerm(1,model.getVarByName("Y"+j+t));	
+
+					model.addConstr(expr1, GRB.LESS_EQUAL, expr2, "c10_0_j"+j+"t"+t+"v"+v);
+				}
+			}	
+		}
+	}
+
+	public void constr11(Instancia_Rahim inst,GRBModel model,Variaveis_Rahim var) throws GRBException{	
+		for (int j = 1; j < inst.getS()+1; j++) { //Para cada j
+			for (int t = 1; t < inst.getT(); t++) { //Para cada t				
+				GRBLinExpr expr1 = new GRBLinExpr();//Cria Expressão
+
+				expr1.addTerm(1, model.getVarByName("I"+j+(t-1)));
+
+				for (int s = t; s < inst.getT(); s++) { //Para cada s	
+					expr1.addTerm(1, model.getVarByName("q"+j+s));
+				}
+
+				GRBLinExpr expr2 = new GRBLinExpr();//Cria Expressão
+				
+				Double exp2 = 0D;
+				for (int s = t; s < inst.getT(); s++) { //Para cada s	
+//					expr2.addConstant(inst.getDj()[j]*inst.getΤt());
+					exp2+=(inst.getDj()[j]*inst.getΤt());
+				}
+//				expr2.addConstant(inst.getzAlfa_jt()[j][t]*(Math.sqrt(inst.getT()-t+1)*inst.getSigma_j()[j]));
+				exp2+=(inst.getzAlfa_jt()[j][t]*(Math.sqrt(inst.getT()-t+1)*inst.getSigma_j()[j]));
+
+				model.addConstr(expr1, GRB.GREATER_EQUAL, exp2, "c11_j"+j+"t"+t);
+//				model.addConstr(expr1, GRB.LESS_EQUAL, expr2, "c11_j"+j+"t"+t);
+			}
+		}
+	}	
+
+	public void constr16(Instancia_Rahim inst,GRBModel model) throws GRBException{	
+		for (int j = 1; j < inst.getS()+1; j++) { //Para cada j	
+
+			GRBLinExpr expr1 = new GRBLinExpr();//Cria Expressão
+
+			expr1.addConstant(inst.getDj()[j]*inst.getΤt()+inst.getzAlfa_jt()[j][1]*inst.getSigma_j()[j]);
+			expr1.addTerm(-1, model.getVarByName("I"+j+(0)));
+
+			GRBLinExpr expr2 = new GRBLinExpr();//Cria Expressão
+			for (int v = 0; v < inst.getV(); v++) {// Somatória de v	
+				for (int i = 0; i < inst.getS()+1; i++) {// Somatória de i
+					expr2.addTerm(1,model.getVarByName("Q"+i+j+1+"_"+v));
+				}
+			}
+
+			model.addConstr(expr1, GRB.LESS_EQUAL, expr2, "c16_j"+j);
+		}		
+	}
+}

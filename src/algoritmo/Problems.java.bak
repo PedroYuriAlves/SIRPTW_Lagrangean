@@ -1,0 +1,245 @@
+package algoritmo;
+import gurobi.*;
+import gurobi.GRBEnv;
+import gurobi.GRBException;
+import gurobi.GRBLinExpr;
+import gurobi.GRBModel;
+import instancias.Instancia_Rahim;
+import instancias.Variaveis_Rahim;
+
+public class Problems {
+	static Constraints constraints = new Constraints();
+	static DecisionVariables decisionVariables = new DecisionVariables();
+
+	public GRBModel CVα (Instancia_Rahim inst, GRBEnv env, Variaveis_Rahim var) throws GRBException{
+		double custo = Double.MAX_VALUE;
+		// Read model from file
+		GRBModel model = new GRBModel(env);
+		model.set(GRB.IntAttr.ModelSense,1);//Minimize
+
+		decisionVariables.addVarXijt_v(inst, model);
+		decisionVariables.addVarYt_v(inst, model);
+		decisionVariables.addVarQijt_v(inst, model);
+		decisionVariables.addVarIjt(inst, model, var);
+		decisionVariables.addVar_qjt(inst, model);
+		model.update();
+
+
+		constraints.constr2(inst, model);
+		constraints.constr3(inst, model);
+		constraints.constr4(inst, model);
+		constraints.constr5(inst, model);
+		constraints.constr6(inst, model);
+		constraints.constr7(inst, model);
+		constraints.constr9(inst, model);
+		constraints.constr10(inst, model);
+		constraints.constr11(inst, model ,var);
+
+
+		GRBLinExpr exprObj = new GRBLinExpr();//Cria Expressão
+
+		for (int t = 1; t < inst.getT(); t++) {
+			for (int v = 0; v < inst.getV(); v++) {
+				exprObj.addTerm(inst.getΨv()[v], model.getVarByName("Y"+t+"_"+v));
+
+				for (int i = 0; i < inst.getS()+1; i++) {
+					for (int j = 0; j < inst.getS()+1; j++) {
+						Double coeff = (inst.getΔv()[v]*inst.getV_v()*inst.getΘ_ij()[i][j])  + inst.getΦj_t()[i][t];						
+						exprObj.addTerm(coeff, model.getVarByName("X"+i+j+t+"_"+v));
+					}
+				}
+			}
+		}
+
+		for (int t = 0; t < inst.getT(); t++) {
+			for (int j = 0; j < inst.getS()+1; j++) {
+				exprObj.addTerm(inst.getΗj_t()[j][t],model.getVarByName("I"+j+t));
+			}
+		}
+
+		model.setObjective(exprObj);
+
+		// Solve model and capture solution information
+		model.optimize();
+		System.out.println("");
+		System.out.println("Optimization complete");
+		if (model.get(GRB.IntAttr.SolCount) == 0) {
+			System.out.println("No solution found, optimization status = "
+					+ model.get(GRB.IntAttr.Status));
+		} else {
+			System.out.println("Solution found, objective = "
+					+ model.get(GRB.DoubleAttr.ObjVal));
+			custo = model.get(GRB.DoubleAttr.ObjVal);
+		}
+		return model;
+	}
+
+	public GRBModel CVα_Zero (Instancia_Rahim inst, GRBEnv env,Variaveis_Rahim var) throws GRBException{
+		double custo = Double.MAX_VALUE;
+		// Read model from file
+		GRBModel model = new GRBModel(env);
+		model.set(GRB.IntAttr.ModelSense,1);//Minimize
+
+		//		decisionVariables.addVarXijt_v(inst, model);
+		//	decisionVariables.addVarYt_v(inst, model);
+		decisionVariables.addVarQijt_v(inst, model, inst.getS());		
+		decisionVariables.addVarIjt(inst, model,var );
+		decisionVariables.addVar_qjt(inst, model );
+		model.update();
+
+		constraints.constr2_0(inst, model, var);
+		constraints.constr3_0(inst, model, var);
+		constraints.constr4_0(inst, model, var);
+		constraints.constr5(inst, model);
+		constraints.constr6_0(inst, model, var);
+		constraints.constr7(inst, model);
+		constraints.constr9(inst, model);
+		constraints.constr10_0(inst, model, var);
+		constraints.constr11(inst, model, var);
+
+		GRBLinExpr exprObj = new GRBLinExpr();//Cria Expressão
+
+		if(inst.getΨv().length < var.getYt_v()[0].length){
+			double[] Ψv_n = new double[inst.getS()+1];
+			for(int d = 0; d < Ψv_n.length; d++)Ψv_n[d] = inst.getΨv()[0];
+			inst.setΨv(Ψv_n);			
+		}
+
+		for (int t = 1; t < inst.getT(); t++) {
+			for (int v = 0; v < inst.getS(); v++) {
+				//				exprObj.addTerm(inst.getΨv()[v], model.getVarByName("Y"+t+"_"+v));
+				exprObj.addConstant(inst.getΨv()[v]*var.getYt_v()[t][v]);
+
+				for (int i = 0; i < inst.getS()+1; i++) {
+					for (int j = 0; j < inst.getS()+1; j++) {
+						Double coeff = (inst.getΔv()[0]*inst.getV_v()*inst.getΘ_ij()[i][j])  + inst.getΦj_t()[i][t];							
+						//						exprObj.addTerm(coeff, model.getVarByName("X"+i+j+t+"_"+v));
+						exprObj.addConstant(coeff*var.getXijt_v()[i][j][t][v]);
+					}
+				}
+			}
+		}
+
+		for (int t = 0; t < inst.getT(); t++) {
+			for (int j = 0; j < inst.getS()+1; j++) {
+				exprObj.addTerm(inst.getΗj_t()[j][t],model.getVarByName("I"+j+t));
+			}
+		}
+
+		model.setObjective(exprObj);
+
+		// Solve model and capture solution information
+		model.optimize();
+//		System.out.println("");
+//		System.out.println("Optimization complete");
+		if (model.get(GRB.IntAttr.SolCount) == 0) {
+		/*	System.out.println("No solution found, optimization status = "
+					+ model.get(GRB.IntAttr.Status));*/
+		} else {
+			/*System.out.println("Solution found, objective = "
+					+ model.get(GRB.DoubleAttr.ObjVal));*/
+
+			custo = model.get(GRB.DoubleAttr.ObjVal);
+
+		}
+		return model;
+	}
+
+	public GRBModel CVI_APμ (Instancia_Rahim inst, GRBEnv env,Variaveis_Rahim var) throws GRBException{
+		double custo = Double.MAX_VALUE;
+		// Read model from file
+		GRBModel model = new GRBModel(env);
+		model.set(GRB.IntAttr.ModelSense,1);//Minimize
+
+		decisionVariables.addVarIjt(inst, model,var);
+		decisionVariables.addVar_qjt(inst, model);
+		//		decisionVariables.addVarQijt_v(inst, model);
+		model.update();
+
+		constraints.constr7(inst, model);
+//		constraints.constr8(inst, model);
+		constraints.constr9(inst, model);
+		constraints.constr11(inst, model,var);
+
+
+		GRBLinExpr expr = new GRBLinExpr();
+		for (int j = 0; j < inst.getS()+1; j++) {
+			for (int t = 0; t < inst.getT(); t++) {
+				expr.addTerm(inst.getΗj_t()[j][t], model.getVarByName("I"+j+t));
+			}
+		}
+
+		for (int t = 1; t < inst.getT(); t++) {
+			for (int j = 1; j < inst.getS()+1; j++) {
+				expr.addTerm(inst.getΜjt()[j][t], model.getVarByName("q"+j+t));
+			}
+		}
+
+		// Solve model and capture solution information
+		model.optimize();
+		return model;
+	}
+	public GRBModel CVRP_Pμ (Instancia_Rahim inst, GRBEnv env,Variaveis_Rahim var) throws GRBException{
+		double custo = Double.MAX_VALUE;
+		// Read model from file
+		GRBModel model = new GRBModel(env);
+		model.set(GRB.IntAttr.ModelSense,1);//Minimize
+
+
+		decisionVariables.addVarXijt_v(inst, model);
+		decisionVariables.addVarYt_v(inst, model);
+		decisionVariables.addVarQijt_v(inst, model);
+		decisionVariables.addVarIjt(inst, model,var);
+		//decisionVariables.addVar_qjt(inst, model);
+		model.update();
+
+
+		constraints.constr2(inst, model);
+		constraints.constr3(inst, model);
+		constraints.constr4(inst, model);
+
+		constraints.constr6(inst, model);
+		constraints.constr10(inst, model);
+
+		constraints.constr16(inst,model);
+
+		GRBLinExpr exprObj = new GRBLinExpr();
+		for (int t = 1; t < inst.getT(); t++) {
+			for (int v = 0; v < inst.getV(); v++) {
+				exprObj.addTerm(inst.getΨv()[v], model.getVarByName("Y"+t+"_"+v));
+
+				for (int i = 0; i < inst.getS()+1; i++) {
+					for (int j = 0; j < inst.getS()+1; j++) {
+						Double coeff = (inst.getΔv()[v]*inst.getV_v()*inst.getΘ_ij()[i][j])  + inst.getΦj_t()[i][t];
+						exprObj.addTerm(coeff, model.getVarByName("X"+i+j+t+"_"+v));
+					}
+				}
+			}
+		}
+
+		for (int t = 1; t < inst.getT(); t++) {
+			for (int j = 1; j < inst.getS()+1; j++) {
+
+				GRBLinExpr expr1 = new GRBLinExpr();
+
+				for (int v = 0; v < inst.getV(); v++) {// Somatória de v	
+					for (int i = 0; i < inst.getS()+1; i++) {// Somatória de i
+						expr1.addTerm(1,model.getVarByName("Q"+i+j+t+"_"+v));						
+					}	
+				}
+				for (int v = 0; v < inst.getV(); v++) {// Somatória de v	
+					for (int k = 0; k < inst.getS()+1; k++) {// Somatória de k
+						expr1.addTerm(-1,model.getVarByName("Q"+j+k+t+"_"+v));						
+					}	
+				}
+
+
+				exprObj.multAdd(-1*inst.getΜjt()[j][t], expr1);
+			}
+		}
+		// Solve model and capture solution information
+		model.optimize();
+		return model;
+	}
+
+}

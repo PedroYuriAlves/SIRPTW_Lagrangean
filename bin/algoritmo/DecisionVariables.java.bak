@@ -1,0 +1,104 @@
+package algoritmo;
+
+import java.beans.Expression;
+import java.util.Random;
+import gurobi.*;
+
+
+import instancias.Instancia;
+import instancias.Instancia_Rahim;
+import instancias.Variaveis_Rahim;
+import util.Solucao;
+
+public class DecisionVariables {
+
+	public GRBVar[][][][] addVarXijt_v(Instancia_Rahim inst,GRBModel model) throws GRBException{
+		GRBVar[][][][] Xijt_v = new GRBVar[inst.getS()+1][inst.getS()+1][inst.getT()][inst.getV()];
+
+		for (int i = 0; i < inst.getS()+1; i++) {
+			for (int j = 0; j < inst.getS()+1; j++) {
+				for (int t = 0; t < inst.getT(); t++) {
+					for (int v = 0; v < inst.getV(); v++) {
+						Xijt_v[i][j][t][v] = model.addVar( 0, 1,1, GRB.BINARY,
+								"X"+i+j+t+"_"+v);
+					}
+				}
+			}
+		}
+		return Xijt_v;
+	}
+	public GRBVar[][] addVarYt_v(Instancia_Rahim inst,GRBModel model) throws GRBException{
+		GRBVar[][] Yt_v = new GRBVar[inst.getT()][inst.getV()];
+
+		for (int t = 0; t < inst.getT(); t++) {
+			for (int v = 0; v < inst.getV(); v++) {
+				Yt_v[t][v] = model.addVar( 0, 1,1, GRB.BINARY,
+						"Y"+t+"_"+v);
+			}
+		}
+
+		return Yt_v;
+	}
+
+
+	public GRBVar[][][][] addVarQijt_v(Instancia_Rahim inst,GRBModel model) throws GRBException{
+		GRBVar[][][][] Qijt_v = new GRBVar[inst.getS()+1][inst.getS()+1][inst.getT()][inst.getV()];
+
+		for (int i = 0; i < inst.getS()+1; i++) {
+			for (int j = 0; j < inst.getS()+1; j++) {
+				for (int t = 0; t < inst.getT(); t++) {
+					for (int v = 0; v < inst.getV(); v++) {
+						Qijt_v[i][j][t][v] = model.addVar(0, inst.getKv(), 1 , GRB.CONTINUOUS,
+								"Q"+i+j+t+"_"+v);
+					}
+				}
+			}
+		}
+		
+		return Qijt_v;
+	}
+	public GRBVar[][][][] addVarQijt_v(Instancia_Rahim inst,GRBModel model,int nV) throws GRBException{
+		GRBVar[][][][] Qijt_v = new GRBVar[inst.getS()+1][inst.getS()+1][inst.getT()][nV];
+
+		for (int i = 0; i < inst.getS()+1; i++) {
+			for (int j = 0; j < inst.getS()+1; j++) {
+				for (int t = 0; t < inst.getT(); t++) {
+					for (int v = 0; v < nV; v++) {
+						Qijt_v[i][j][t][v] = model.addVar(0, inst.getKv(), 1 , GRB.CONTINUOUS,
+								"Q"+i+j+t+"_"+v);
+					}
+				}
+			}
+		}
+		
+		return Qijt_v;
+	}
+	
+	public GRBVar[][] addVar_qjt(Instancia_Rahim inst,GRBModel model) throws GRBException{
+		GRBVar[][] qjt = new GRBVar[inst.getS()+1][inst.getT()];
+		for (int j = 0; j < inst.getS()+1; j++) {
+			for (int t = 0; t < inst.getT(); t++) {					
+				qjt[j][t] = model.addVar(0, Integer.MAX_VALUE, 1 , GRB.CONTINUOUS,
+						"q"+j+t);
+			}
+		}
+		return qjt;
+	}
+	public GRBVar[][] addVarIjt(Instancia_Rahim inst,GRBModel model,Variaveis_Rahim var) throws GRBException{
+		GRBVar[][] Ijt = new GRBVar[inst.getS()+1][inst.getT()];
+		for (int j = 0; j < inst.getS()+1; j++) {
+			for (int t = 0; t < inst.getT(); t++) {					
+				Ijt[j][t] = model.addVar(0, Integer.MAX_VALUE, 1 , GRB.CONTINUOUS,
+						"I"+j+t);
+				model.update();
+			/*	if(t == 0 ){
+					GRBLinExpr expr1 = new GRBLinExpr();//Cria Expressão
+					expr1.addTerm(1,model.getVarByName("I"+j+"0"));
+					model.addConstr(expr1, GRB.EQUAL, var.getI_j0()[j], "c7_Ij"+j+"0Inic");
+				}*/
+			}
+		}
+		return Ijt;
+	}
+
+}

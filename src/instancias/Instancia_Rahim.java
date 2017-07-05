@@ -1,0 +1,612 @@
+package instancias;
+
+import java.util.HashMap;
+import java.util.Random;
+import util.*;
+
+import javax.sql.rowset.spi.TransactionalWriter;
+
+/**
+ * @author Krespo
+ *
+ */
+public class Instancia_Rahim {
+
+	Funcoes f = new Funcoes();
+
+	/**
+	 * Numero de Clientes.
+	 */
+	private int S;
+	/**
+	 * Tempo de Horizonte.
+	 */
+	private int T;
+
+	/**
+	 * Unidades de tempo no periodo t
+	 */
+	private int τt;
+
+	/**
+	 * Capacidade do Veículo.
+	 */
+	private int kv;
+
+
+	/**
+	 * Custo Fixo de Operação do veiculo v
+	 */
+	private double[] ψv;
+
+	/**
+	 * Custo fixo do veículo por viagem.
+	 */
+	private double[] δv;
+
+
+	/**
+	 *Custo de entrega
+	 * no cliente j no periodo t.
+	 */
+	private double[][] ϕj_t;
+
+	/**
+	 *Custo de armazenagem por unidade do produto
+	 * no cliente j no periodo t.
+	 */
+	private double[][] ηj_t;
+
+
+	/**
+	 * Capacidade de estoque do cliente i
+	 */
+	//private double[] V_i;
+
+	/**
+	 * Demanda do cliente j
+	 * no periodo t.
+	 */
+	private double[][] d_jt;
+
+	/**
+	 * Média/ Esperança do cliente j
+	 */
+	private double[] Dj;
+
+	/**
+	 * Desvio Padrão do cliente j
+	 */
+	private double[] sigma_j;
+
+	/**
+	 *Tamanho da frota de veículo (numero de veículos disponiveis)
+	 */
+	private int V;	
+
+	/**
+	 *Velocidade Média do veículo v
+	 */
+	private int ν_v;	
+
+	/**
+	 * Custo de Viagem por unidade de produto do cliente i para o j
+	 */
+	private double[][] c_ij;
+
+	/**
+	 * Tempo de viagem de i para o j
+	 */
+	private double[][] θ_ij;
+
+	/**
+	 * Custo de Viagem vazia do cliente i até a base
+	 */
+	private double[] b_c_i0;
+
+	/**
+	 * Transferencia planejada para o armazem no período t
+	 */
+	private double[] Rrt;
+
+	/**
+	 * coordenadas X do cliente i
+	 */
+	private double [] iPosX;
+	/**
+	 *  coordenadas Y do cliente i
+	 */
+	private double [] iPosY;
+	
+	/**
+	 *  Multiplicador LagrangianoS
+	 */
+	private double [][] μjt;
+
+	/**
+	 * @return the ν_v
+	 */
+	public int getΝ_v() {
+		return ν_v;
+	}
+	/**
+	 * @param ν_v the ν_v to set
+	 */
+	public void setΝ_v(int ν_v) {
+		this.ν_v = ν_v;
+	}
+	/**
+	 * @return the μjt
+	 */
+	public double[][] getΜjt() {
+		return μjt;
+	}
+	/**
+	 * @param μjt the μjt to set
+	 */
+	public void setΜjt(double[][] μjt) {
+		this.μjt = μjt;
+	}
+	/**
+	 * @return the zAlfa
+	 */
+	/*public double getzAlfa() {
+		return zAlfa;
+	}
+	/**
+	 * @param zAlfa the zAlfa to set
+	 */
+	/*public void setzAlfa(double zAlfa) {
+		this.zAlfa = zAlfa;
+	}*/
+	/**
+	 *  fator zAlfa
+	 */
+//	private double zAlfa;
+	/**
+	 *  fator zAlfa
+	 */
+	private double [][] zAlfa_jt;
+	
+	/**
+	 * @return the zAlfa_jt
+	 */
+	public double[][] getzAlfa_jt() {
+		return zAlfa_jt;
+	}
+	/**
+	 * @param zAlfa_jt the zAlfa_jt to set
+	 */
+	public void setzAlfa_jt(double[][] zAlfa_jt) {
+		this.zAlfa_jt = zAlfa_jt;
+	}
+	/**
+	 * @return the f
+	 */
+	public Funcoes getF() {
+		return f;
+	}
+	/**
+	 * @param f the f to set
+	 */
+	public void setF(Funcoes f) {
+		this.f = f;
+	}
+	/**
+	 * @return the s
+	 */
+	public int getS() {
+		return S;
+	}
+	/**
+	 * @param s the s to set
+	 */
+	public void setS(int s) {
+		S = s;
+	}
+	/**
+	 * @return the t
+	 */
+	public int getT() {
+		return T;
+	}
+	/**
+	 * @param t the t to set
+	 */
+	public void setT(int t) {
+		T = t;
+	}
+	/**
+	 * @return the τt
+	 */
+	public int getΤt() {
+		return τt;
+	}
+	/**
+	 * @param τt the τt to set
+	 */
+	public void setΤt(int τt) {
+		this.τt = τt;
+	}
+	/**
+	 * @return the kv
+	 */
+	public int getKv() {
+		return kv;
+	}
+	/**
+	 * @param kv the kv to set
+	 */
+	public void setKv(int kv) {
+		this.kv = kv;
+	}
+	/**
+	 * @return the ψv
+	 */
+	public double[] getΨv() {
+		return ψv;
+	}
+	/**
+	 * @param ψv the ψv to set
+	 */
+	public void setΨv(double[] ψv) {
+		this.ψv = ψv;
+	}
+	/**
+	 * @return the δv
+	 */
+	public double[] getΔv() {
+		return δv;
+	}
+	/**
+	 * @param δv the δv to set
+	 */
+	public void setΔv(double[] δv) {
+		this.δv = δv;
+	}
+	/**
+	 * @return the ϕj_t
+	 */
+	public double[][] getΦj_t() {
+		return ϕj_t;
+	}
+	/**
+	 * @param φj_t the ϕj_t to set
+	 */
+	public void setΦj_t(double[][] φj_t) {
+		ϕj_t = φj_t;
+	}
+	/**
+	 * @return the ηj_t
+	 */
+	public double[][] getΗj_t() {
+		return ηj_t;
+	}
+	/**
+	 * @param ηj_t the ηj_t to set
+	 */
+	public void setΗj_t(double[][] ηj_t) {
+		this.ηj_t = ηj_t;
+	}
+	/**
+	 * @return the v_i
+	 */
+	/*public double[] getV_i() {
+		return V_i;
+	}
+	/**
+	 * @param v_i the v_i to set
+	 */
+	/*public void setV_i(double[] v_i) {
+		V_i = v_i;
+	}*/
+	/**
+	 * @return the d_jt
+	 */
+	public double[][] getD_jt() {
+		return d_jt;
+	}
+	/**
+	 * @param d_jt the d_jt to set
+	 */
+	public void setD_jt(double[][] d_jt) {
+		this.d_jt = d_jt;
+	}
+	/**
+	 * @return the v
+	 */
+	public int getV() {
+		return V;
+	}
+	/**
+	 * @param v the v to set
+	 */
+	public void setV(int v) {
+		V = v;
+	}
+
+	/**
+	 * @return the c_ij
+	 */
+	public double[][] getC_ij() {
+		return c_ij;
+	}
+	/**
+	 * @return the ν_v
+	 */
+	public int getV_v() {
+		return ν_v;
+	}
+	/**
+	 * @param ν_v the ν_v to set
+	 */
+	public void setV_v(int ν_v) {
+		this.ν_v = ν_v;
+	}
+	/**
+	 * @param c_ij the c_ij to set
+	 */
+	public void setC_ij(double[][] c_ij) {
+		this.c_ij = c_ij;
+	}
+	/**
+	 * @return the θ_ij
+	 */
+	public double[][] getΘ_ij() {
+		return θ_ij;
+	}
+	/**
+	 * @param θ_ij the θ_ij to set
+	 */
+	public void setΘ_ij(double[][] θ_ij) {
+		this.θ_ij = θ_ij;
+	}
+	/**
+	 * @return the b_c_i0
+	 */
+	public double[] getB_c_i0() {
+		return b_c_i0;
+	}
+	/**
+	 * @param b_c_i0 the b_c_i0 to set
+	 */
+	public void setB_c_i0(double[] b_c_i0) {
+		this.b_c_i0 = b_c_i0;
+	}
+	/**
+	 * @return the rrt
+	 */
+	public double[] getRrt() {
+		return Rrt;
+	}
+	/**
+	 * @param rrt the rrt to set
+	 */
+	public void setRrt(double[] rrt) {
+		Rrt = rrt;
+	}
+	/**
+	 * @return the iPosX
+	 */
+	public double[] getiPosX() {
+		return iPosX;
+	}
+	/**
+	 * @param iPosX the iPosX to set
+	 */
+	public void setiPosX(double[] iPosX) {
+		this.iPosX = iPosX;
+	}
+	/**
+	 * @return the iPosY
+	 */
+	public double[] getiPosY() {
+		return iPosY;
+	}
+	/**
+	 * @param iPosY the iPosY to set
+	 */
+	public void setiPosY(double[] iPosY) {
+		this.iPosY = iPosY;
+	}
+	public void setCDPosY(double CDPosY) {
+		this.iPosY[0] = CDPosY;
+	}
+	public void setCDPosX(double CDPosX) {
+		this.iPosX[0] = CDPosX;
+	}
+
+	/**
+	 * @param S - Numero de Clientes.
+	 * @param T - Tempo de Horizonte.
+	 * @param kvRange - Intervalo de Capacidade do Veículo.
+	 * @param ψvRange - Intervalo de Custo fixo de operação do Veículo.
+	 * @param δv_tRange - Intervalo de Custo fixo do veículo por viagem no periodo t.
+	 * @param η_itRange - Intervalo de Custo de armazenagem por unidade do produto no cliente i no periodo t.
+	 * @param ϕj_tRange - Intervalo de Custo de Entrega por unidade do produto no cliente j no periodo t.
+	 * @param I_i0Range - Intervalo de Nivel de estoque inicial do Cliente i
+	 * @param V_iRange - Intervalo de Capacidade de estoque do cliente i.
+	 * @param d_jtRange - Intervalo de Demanda do cliente i no periodo t.
+	 * @param tamXSquare - Tamanho Geografico X
+	 * @param tamYSquare - Tamanho Geográfico Y
+	 * @throws IndexOutOfBoundsException - Intervalo fora do padrão
+	 */
+	public Instancia_Rahim(int S,int T,int τt,
+			int[] kvRange,double[] ψvRange,int v_v, int[]δv_tRange,double[] η_itRange,double[] ϕj_tRange,int[]V_iRange,double[]d_jtRange,
+			double[] RrtRange,int tamXSquare,int tamYSquare) throws IndexOutOfBoundsException{
+
+		if(kvRange.length != 2)throw new IndexOutOfBoundsException("Intervalo 'kvRange' com tamanho incorreto: Deve conter [min,max]");
+		if(δv_tRange.length != 2)throw new IndexOutOfBoundsException("Intervalo 'δv_tRange' com tamanho incorreto: Deve conter [min,max]");
+		if(η_itRange.length != 2)throw new IndexOutOfBoundsException("Intervalo 'η_itRange' com tamanho incorreto: Deve conter [min,max]");
+
+		if(V_iRange.length != 2)throw new IndexOutOfBoundsException("Intervalo 'V_iRange' com tamanho incorreto: Deve conter [min,max]");
+		if(d_jtRange.length != 2)throw new IndexOutOfBoundsException("Intervalo 'd_jtRange' com tamanho incorreto: Deve conter [min,max]");
+		if(RrtRange.length != 2)throw new IndexOutOfBoundsException("Intervalo 'RrtRange' com tamanho incorreto: Deve conter [min,max]");
+
+		this.S = S;
+		T++;
+		this.T = T;// Para contar no array o tempo 0
+		this.τt = τt;
+		this.ν_v = v_v;
+		
+		Random rand = new Random(1);
+
+		this.kv = (kvRange[1]-kvRange[0] <= 0)?kvRange[0]:kvRange[0]+rand.nextInt(kvRange[1]-kvRange[0]);
+
+		//double randomValue = rangeMin + (rangeMax - rangeMin) * r.nextDouble()
+		this.Rrt = new double[T];
+		for(int t = 0; t < T; t++){
+			this.Rrt[t] =RrtRange[0] + (RrtRange[1] - RrtRange[0]) * rand.nextDouble();
+
+			//		this.δv.put(String.valueOf(t) ,δv_tRange[0] + (δv_tRange[1] - δv_tRange[0]) * rand.nextDouble());
+		}
+
+		
+
+		this.ηj_t = new double[S+1][T];
+		for(int i = 0;i < S+1; i++){
+			for(int t = 0; t < T; t++){
+				this.ηj_t[i][t]=η_itRange[0] + (η_itRange[1] - η_itRange[0]) * rand.nextDouble();
+				//this.ηj_t.put(String.valueOf(i)+","+String.valueOf(t) ,η_itRange[0] + (η_itRange[1] - η_itRange[0]) * rand.nextDouble());
+			}
+		}
+
+		this.ϕj_t = new double[S+1][T];
+		for(int i = 1;i <= S; i++){
+			for(int t = 0; t < T; t++){
+				this.ϕj_t[i][t] = ϕj_tRange[0] + (ϕj_tRange[1] - ϕj_tRange[0]) * rand.nextDouble();
+				//this.ϕj_t.put(String.valueOf(i)+","+String.valueOf(t) ,ϕj_tRange[0] + (ϕj_tRange[1] - ϕj_tRange[0]) * rand.nextDouble());
+			}
+		}
+
+
+		/*this.V_i = new double[S+1];
+		for(int i = 1;i <= S; i++){
+			this.V_i[i] = V_iRange[0] + (V_iRange[1] - V_iRange[0]) * rand.nextDouble();
+			//	this.V_i.put(String.valueOf(i),V_iRange[0] + (V_iRange[1] - V_iRange[0]) * rand.nextDouble());
+		}*/
+
+
+
+
+		this.d_jt =new double[S+1][T];
+		this.Dj =new double[S+1];
+		this.sigma_j = new double[S+1];
+		for(int j = 1;j < S+1; j++){
+			for(int t = 1; t < T; t++){
+				this.d_jt[j][t] = d_jtRange[0] + (d_jtRange[1] - d_jtRange[0]) * rand.nextDouble();
+				//this.d_jt.put(String.valueOf(i)+","+String.valueOf(t) ,d_jtRange[0] + (d_jtRange[1] - d_jtRange[0]) * rand.nextDouble());
+			}
+		}
+		for(int j = 1;j <= S; j++){
+			double media = 0;
+			for(int t = 0; t < T; t++){
+				media += this.d_jt[j][t];
+			}
+			this.Dj[j] = media/this.d_jt[j].length;
+			// Média - Esperança
+
+			
+			//Variancia
+			
+			/* double mean = this.Dj[j];
+		        double temp = 0;
+		        for(double a :this.d_jt[j])
+		            temp += (mean-a)*(mean-a);
+		     Double Variancia =  temp/this.d_jt[j].length;*/
+		        
+			double sumDesvio = 0;
+			for(int t = 1;t < T; t++){
+				sumDesvio += Math.pow((this.d_jt[j][t] - this.Dj[j]),2);
+			}
+			
+			//Desvio Padrão
+			this.sigma_j[j] = Math.sqrt((double)(1/(this.T))*sumDesvio);// Desvio Padrão
+//			this.sigma_j[j] = Math.sqrt(Variancia);// Desvio Padrão
+		}
+
+
+
+		this.iPosX = new double[S+1];
+		this.iPosY = new double[S+1];
+		for(int i = 0;i < S+1; i++){
+			iPosX[i] = 0 + (tamXSquare - 0) * rand.nextDouble();
+			iPosY[i] = 0 + (tamYSquare - 0) * rand.nextDouble();
+		}
+		this.b_c_i0 = new double[S+1];
+		this.c_ij = new double[S+1][S+1];
+		this.θ_ij = new double[S+1][S+1];
+		for(int i = 0;i < S+1; i++){
+			for(int j = 0;j < S+1;j++){
+				if(j == 0 && i > 0){
+					this.b_c_i0[i] = f.dCalculaDist(this.iPosX[i],this.iPosY[i], this.iPosX[j], this.iPosY[j]);
+					//					this.b_c_i0.put(String.valueOf(i), f.dCalculaDist(this.iPosX[i],this.iPosY[i], this.iPosX[j], this.iPosY[j]));
+				}
+				this.c_ij[i][j] = f.dCalculaDist(this.iPosX[i],this.iPosY[i], this.iPosX[j], this.iPosY[j]);
+				this.θ_ij[i][j] = this.c_ij[i][j]/this.ν_v;
+//				θ_ij em Horas!
+			}
+		}
+
+		// ?????????????????????????????????????????
+		int maxTaur_ij = 1;
+		for(int tau = 1;tau < T; tau++){
+			int sumT = 0;
+
+			for(int t = 1; t <= tau; t++){
+				int sumN = 0;
+				for(int i = 1;i <= S; i++){
+					sumN += this.d_jt[i][t];
+					//sumN += this.d_jt.get(i+","+t);
+				}
+				sumT+=sumN/(tau*this.kv);
+			}
+
+			if(sumT > maxTaur_ij)maxTaur_ij = sumT;
+		}
+
+		this.V =  this.S;
+//		this.V =  maxTaur_ij;
+		// ?????????????????????????????????????????
+
+		this.δv = new double[V];
+		for(int v = 0; v < V; v++){
+			this.δv[v] =δv_tRange[0] + (δv_tRange[1] - δv_tRange[0]) * rand.nextDouble();
+
+			//		this.δv.put(String.valueOf(t) ,δv_tRange[0] + (δv_tRange[1] - δv_tRange[0]) * rand.nextDouble());
+		}
+		this.ψv = new double[V]; 	
+		for(int v = 0;v < this.V; v++){
+			this.ψv[v] = ψvRange[0] + (ψvRange[1] - ψvRange[0]) * rand.nextDouble();
+			//this.ψv.put(String.valueOf(v),ψvRange[0] + (ψvRange[1] - ψvRange[0]) * rand.nextDouble());
+		}
+		/*this.ψv[0] = 10;
+		this.ψv[1] = 20;
+		this.ψv[2] = 30;*/
+		this.ν_v = v_v;
+	}
+	/**
+	 * @return the dj
+	 */
+	public double[] getDj() {
+		return Dj;
+	}
+	/**
+	 * @param dj the dj to set
+	 */
+	public void setDj(double[] dj) {
+		Dj = dj;
+	}
+	/**
+	 * @return the sigma_j
+	 */
+	public double[] getSigma_j() {
+		return sigma_j;
+	}
+	/**
+	 * @param sigma_j the sigma_j to set
+	 */
+	public void setSigma_j(double[] sigma_j) {
+		this.sigma_j = sigma_j;
+	}
+}

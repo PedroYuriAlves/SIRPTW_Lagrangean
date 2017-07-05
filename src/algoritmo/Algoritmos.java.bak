@@ -1,0 +1,618 @@
+package algoritmo;
+
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Random;
+
+import javax.swing.plaf.basic.BasicInternalFrameTitlePane.MaximizeAction;
+
+import gurobi.*;
+import instancias.Instancia_Rahim;
+import instancias.Variaveis_Rahim;
+
+public class Algoritmos {
+
+	Random random = new Random();
+
+	public Variaveis_Rahim algoritmo1 (GRBEnv env, Instancia_Rahim inst ,Variaveis_Rahim var) throws GRBException{
+
+		//		Step 0. (Initialization):
+		double LB = 0;
+		double UB = Double.MAX_VALUE;
+		//GRBModel XZ_Best;
+		Variaveis_Rahim VarXZ_Best;
+
+		int k = 1;
+		int improveC_LRk = 0;
+		int kMax = 100;
+		int MaxInproveC_LRk = 10;
+
+		double ω = random.nextDouble();
+		double μ = random.nextDouble();
+		double[][] μjt = new double [inst.getS()+1][inst.getT()];
+		for (int j = 0; j < inst.getS()+1; j++) {
+			for (int t = 0; t < inst.getT(); t++) {
+				μjt[j][t] = random.nextDouble();
+				//				μjt[j][t] = μ;
+			}
+		}
+		inst.setΜjt(μjt);
+
+		//		Step 1. (Computing the first UB):
+		Problems prob = new Problems();
+
+		VarXZ_Best = translateGurobiZero(prob.CVα_Zero(inst, env, var),inst,var);
+		UB = VarXZ_Best.getCusto();
+
+
+		double lastC_LRk = Double.MAX_VALUE;
+		do{
+			//		Step 2. (Computing the lower bound):
+			Variaveis_Rahim Ck_IAP = new Variaveis_Rahim();
+			Ck_IAP = translateGurobiIA(prob.CVI_APμ( inst, env, var), inst) ;
+
+			Variaveis_Rahim Ck_RTP = new Variaveis_Rahim();
+			Ck_RTP = translateGurobiRP(prob.CVRP_Pμ( inst, env, var),inst);
+
+			Double Ck_LR = Ck_IAP.getCusto()+Ck_RTP.getCusto();//get(GRB.DoubleAttr.ObjVal);
+			if(Ck_LR < lastC_LRk){
+				improveC_LRk = 0;
+				lastC_LRk = Ck_LR;
+			}
+			else{
+				improveC_LRk++;
+			}
+
+			//			System.out.println(Ck_LR);
+			if(Ck_LR > LB){
+				LB = Ck_LR;	
+			}else{
+				ω =ω/2; 
+			}
+
+			//		Step 3. (Computing the upper bound):
+//			Variaveis_Rahim CkIAP =  Ck_IAP;
+			Variaveis_Rahim XZ_k = algoritmo2(VarXZ_Best, inst, var);
+			Double custo_K = XZ_k.getCusto();
+			if(custo_K < UB){
+				UB = custo_K;
+				VarXZ_Best = XZ_k;
+				VarXZ_Best.setUB(UB);
+				VarXZ_Best.setLB(LB);
+			}
+
+			VarXZ_Best = algoritmo3(UB, VarXZ_Best, env, inst);
+			VarXZ_Best.setUB(VarXZ_Best.getCusto());
+			VarXZ_Best.setLB(LB);
+
+
+			//		Step 4. (Updating μ):
+			double[][] gjt = new double [inst.getS()+1][inst.getT()];
+
+			for (int j = 0; j < inst.getS()+1; j++) {//Para cada j
+				for (int t = 0; t < inst.getT(); t++) { //Para cada t
+					gjt[j][t] = XZ_k.getQjt()[j][t];
+					for (int i =0; i < inst.getS()+1; i++) {//Para cada i
+						for (int v = 0; v < inst.getV(); v++) {//Para cada v
+							gjt[j][t] -= XZ_k.getQijt_v()[i][j][t][v];
+						}	
+					}
+					for (int ki = 0; ki < inst.getS()+1; ki++) {//Para cada ki
+						for (int v = 1; v < inst.getV(); v++) {//Para cada v
+							gjt[j][t] -= XZ_k.getQijt_v()[j][ki][t][v];
+						}	
+					}
+				}
+			}
+			double gk = frobenius_Norm(gjt);
+
+			double sk = ω*(UB-Ck_LR)/(Math.pow(gk,2));
+
+
+			double[][] μjtK = new double [inst.getS()+1][inst.getT()];
+			for (int j = 0; j < inst.getS()+1; j++) {
+				for (int t = 0; t < inst.getT(); t++) {					
+					μjtK[j][t] = inst.getΜjt()[j][t]+sk*gjt[j][t];
+				}
+			}
+			inst.setΜjt(μjtK);
+
+
+			//			Step 5. (Stopping rule):
+			if(k < kMax && improveC_LRk < MaxInproveC_LRk){
+				k++;
+				continue;
+			}else{
+				break;
+			}
+		}while(true);
+
+		return VarXZ_Best;
+	}
+
+	public Variaveis_Rahim algoritmo2 (Variaveis_Rahim XZ_Best , Instancia_Rahim inst ,Variaveis_Rahim var) throws GRBException{
+
+		ArrayList<Route> lRoutes_t = new ArrayList<>();
+
+		for (int t = 1; t < inst.getT(); t++) { //Para cada t
+
+			ArrayList<Cliente> SRt  = new ArrayList<>();
+			Route routeL = new Route();
+			routeL.idVeic = 0;
+			routeL.nVeic = inst.getS();
+
+			//			Step 0. (Initialization):
+			int tourId = 0;
+			for(int i = 1; i<inst.getS()+1; i++){
+				double travelt = inst.getΘ_ij()[0][i]+inst.getΘ_ij()[i][0];
+				if(XZ_Best.getQjt()[i][t] > 0 && travelt < inst.getΤt()){
+					//					if(XZ_Best.getVarByName("q"+i+t).get(GRB.DoubleAttr.X)> 0 && travelt < inst.getΤt()){
+					Cliente c = new Cliente();
+					c.setId(i);
+					c.setQj(XZ_Best.getQjt()[i][t]);
+					SRt.add(c);
+					Tour tour = new Tour();
+					tour.tourId = tourId++;
+					tour.lClientes.add(c);
+					tour.TravelTime = travelt;
+					tour.cost = CV_Tour(tour, inst, 1, 0);
+					routeL.lTours.add(tour);		
+
+				}
+			}
+
+			Double Best_SV = -1D;
+			do{
+				//			Step 1. (Improvement Step):
+				int n = routeL.lTours.size();
+				Best_SV = -1D;
+				int best_i = -1,best_j = -1;
+				Tour bestTour = new Tour();
+
+				for(int i = 0; i < n; i++){
+					for(int j = i+1; j < n; j++){
+						Tour cPlus = new Tour();
+						cPlus.lClientes.addAll(routeL.lTours.get(i).lClientes);
+						cPlus.lClientes.addAll(routeL.lTours.get(j).lClientes);
+
+						cPlus = new TSP().NearestNeighbour(cPlus, inst);
+						cPlus.TravelTime = CV_TourTime(cPlus, inst);
+						double CV_Plus = CV_Tour(cPlus,inst,t,0);
+						
+						if(cPlus.TravelTime > inst.getΤt()){// infeasible
+							
+							Route nRoute = new Route();
+							//						nRoute.idVeic =
+							nRoute.lTours.addAll(routeL.lTours.subList(0, i));
+							nRoute.lTours.addAll(routeL.lTours.subList(i+1, j));
+							nRoute.lTours.addAll(routeL.lTours.subList(j+1,n));
+							nRoute.lTours.add(cPlus);
+						}
+						else{//Feasible
+							if(cPlus.TravelTime < routeL.lTours.get(i).TravelTime + routeL.lTours.get(j).TravelTime){
+								Double SV = routeL.lTours.get(i).TravelTime + routeL.lTours.get(j).TravelTime - cPlus.TravelTime;
+								if(SV > Best_SV){
+									Best_SV = SV;
+									bestTour = new Tour();
+									bestTour = cPlus;
+									best_i = i;
+									best_j = j;
+								}
+							}
+						}
+					}
+				}
+				if(best_j > -1 && best_i > -1){
+					routeL.lTours.remove(best_j);
+					routeL.lTours.remove(best_i);				
+					bestTour.tourId = n+1;
+					routeL.lTours.add(bestTour);
+				}
+
+			}while(Best_SV > 0D);//Step 2. (Stopping rule):
+
+			for(Tour tour : routeL.lTours){
+				routeL.totalTravel += CV_TourTime(tour, inst);
+				routeL.totalCost += CV_Tour(tour, inst,t,0);
+			}
+			routeL.nVeic = 1;
+			if(routeL.totalTravel > inst.getΤt()){
+				routeL.nVeic = (int)Math.floor((routeL.totalTravel/ inst.getΤt()))+1;
+			}
+
+			routeL.totalCost += routeL.nVeic*inst.getΨv()[0];
+
+			lRoutes_t.add(routeL);
+		}
+
+		int [][][][] Xijt_v = new int [inst.getS()+1][inst.getS()+1][inst.getT()][inst.getV()];
+		int[][] Yt_v = new int [inst.getT()][inst.getV()];
+
+
+
+		for(int t = 0; t < inst.getT()-1; t++){
+			int veicAtual = 0;
+			double timeVeic = 0;
+			for(int tour = 0; tour< lRoutes_t.get(t).lTours.size(); tour++){
+				if(timeVeic+lRoutes_t.get(t).lTours.get(tour).TravelTime > inst.getΤt()){
+					veicAtual++;
+					timeVeic = 0;
+				}
+				int idAnt = 0;
+				for(int c = 0; c< lRoutes_t.get(t).lTours.get(tour).lClientes.size(); c++){
+					LinkedList<Cliente> l =  lRoutes_t.get(t).lTours.get(tour).lClientes;
+
+					if(c ==lRoutes_t.get(t).lTours.get(tour).lClientes.size()-1 ){
+						Xijt_v[l.get(c).id][0][t+1][veicAtual] = 1;
+						Yt_v[t+1][veicAtual] = 1;
+					}
+					else{
+						Xijt_v[idAnt][l.get(c).id][t+1][veicAtual] = 1;
+						Yt_v[t+1][veicAtual] = 1;
+					}
+					idAnt = l.get(c).id;
+				}
+				timeVeic += lRoutes_t.get(t).lTours.get(tour).TravelTime;
+			}
+		}
+
+		//		double[] I_j0 = new double [inst.getS()+1];
+		double[][] Ijt  = new double [inst.getS()+1][inst.getT()];
+		double[][][][] Qijt_v  = new double [inst.getS()+1][inst.getS()+1][inst.getT()][inst.getV()];
+		double[][] qjt = new double [inst.getS()+1][inst.getT()];
+
+		for (int i = 0; i < inst.getS()+1; i++) {
+			for (int j = 0; j < inst.getS()+1; j++) {
+				for (int t = 0; t < inst.getT(); t++) {
+					Ijt[j][t]  = XZ_Best.getIjt()[j][t];
+					qjt[j][t]  = XZ_Best.getQjt()[j][t];
+					//					Ijt[j][t]  = XZ_Best.getVarByName("I"+j+t).get(GRB.DoubleAttr.X);
+					//					qjt[j][t]  = XZ_Best.getVarByName("q"+j+t).get(GRB.DoubleAttr.X);
+					/*for (int v = 0; v < inst.getV(); v++) {						
+						//			Qijt_v[i][j][t][v] = Ck_IAP.getVarByName("Q"+i+j+t+"_"+v).get(GRB.DoubleAttr.X);
+					}*/
+				}
+			}
+		}
+		var.setXijt_v(Xijt_v);
+		var.setYt_v(Yt_v);
+		var.setQijt_v(Qijt_v);
+		var.setIjt(Ijt);
+		var.setQjt(qjt);
+		//		var.setI_j0(XZ_Best.getI_j0());
+
+		var.setCusto(CV_custoSolucao(inst,var));
+
+		return var;
+	}
+
+	public Variaveis_Rahim algoritmo3 (Double UB,Variaveis_Rahim XZ_best,GRBEnv env, Instancia_Rahim inst ) throws GRBException{
+		int k = 0;
+		Variaveis_Rahim XZ_k = new Variaveis_Rahim();
+		XZ_k.setQjt(XZ_best.getQjt());
+		XZ_k.setQijt_v(XZ_best.getQijt_v());
+		XZ_k.setYt_v(XZ_best.getYt_v());
+		XZ_k.setXijt_v(XZ_best.getXijt_v());
+		XZ_k.setIjt(XZ_best.getIjt());
+		//		XZ_k.setI_j0(XZ_best.getI_j0());
+
+		ArrayList<Integer> W = new ArrayList<>();
+		for(int i = 1;i< inst.getS()+1; i++){
+			int c = 0;
+			for(int t = 1;t < inst.getT(); t++){
+				if(XZ_best.getQjt()[i][t] > 0){
+					c++;
+				}
+			}
+			if(c>1){
+				W.add(i);
+			}
+		}
+
+
+
+		for(int index = 0; index < W.size(); index++){
+			int j = W.get(index);
+			W.remove(index);
+			index--;
+
+			for(int m = inst.getT()-1 ; m > 0; m--){				
+				if( XZ_best.getQjt()[j][m] > 0){	//for q*jm > 0	
+
+					if(XZ_best.getQjt()[j][m] <= inst.getKv()){// ≤ κ						
+						XZ_k.getQjt()[j][m] = XZ_best.getQjt()[j][m];
+
+						for(int n = m+1; n<  inst.getT(); n ++){							
+							if( XZ_best.getQjt()[j][n] > 0){//for q*jn > 0
+
+								if(XZ_k.getQjt()[j][m] + XZ_best.getQjt()[j][n] <= inst.getKv()){// ≤ κ
+
+									XZ_k.getQjt()[j][m] += XZ_best.getQjt()[j][n]; 
+									XZ_k.getQjt()[j][n] = 0;
+
+									XZ_k.getIjt()[j][m] += XZ_best.getQjt()[j][n];
+									XZ_k.getIjt()[j][n] -= XZ_best.getQjt()[j][n];
+
+								}
+							}
+						}
+					}
+
+
+					XZ_k = algoritmo2(XZ_k, inst, new Variaveis_Rahim());
+
+					if(UB > XZ_k.getCusto()){
+						UB = XZ_k.getCusto();
+						XZ_best = XZ_k;
+					}
+				}
+			}
+
+			//			1-b
+			int count = 0;
+			for(int t = 1; t< inst.getT(); t++){
+				if(XZ_best.getQjt()[j][t] > 0){
+					count++;
+				}
+			}
+
+			if(count > 1){
+
+				XZ_k = new Variaveis_Rahim();
+				XZ_k.setQjt(XZ_best.getQjt());
+				XZ_k.setQijt_v(XZ_best.getQijt_v());
+				XZ_k.setYt_v(XZ_best.getYt_v());
+				XZ_k.setXijt_v(XZ_best.getXijt_v());
+				XZ_k.setIjt(XZ_best.getIjt());
+				//				XZ_k.setI_j0(XZ_best.getI_j0());
+
+				for(int n = 2; n < inst.getT(); n++){
+					if(XZ_best.getQjt()[j][n] > 0){
+						if(XZ_best.getQjt()[j][n] <= inst.getKv()){// ≤ κ						
+							XZ_k.getQjt()[j][n] = XZ_best.getQjt()[j][n];
+							XZ_k.getIjt()[j][0] = XZ_best.getIjt()[j][0];
+
+							for(int m = 1; m < n; m++){
+								if(XZ_best.getQjt()[j][m] > 0){
+									if(XZ_k.getQjt()[j][n] + XZ_best.getQjt()[j][m] <= inst.getKv()){// ≤ κ
+
+										XZ_k.getQjt()[j][n] += XZ_best.getQjt()[j][m]; 
+										XZ_k.getIjt()[j][0] += XZ_best.getQjt()[j][m]; 
+										XZ_k.getQjt()[j][m] = 0;
+
+										XZ_k.getIjt()[j][n] += XZ_best.getQjt()[j][m];
+										XZ_k.getIjt()[j][m] -= XZ_best.getQjt()[j][m];
+
+									}
+
+								}
+							}
+						}
+
+
+						XZ_k = algoritmo2(XZ_k, inst, new Variaveis_Rahim());
+
+						if(UB > XZ_k.getCusto()){
+							UB = XZ_k.getCusto();
+							XZ_best = XZ_k;
+						}	
+					}					
+				}	
+			}
+
+
+
+
+
+
+			if(W.size() > 0){
+				k = k +1;
+			}
+		}
+
+		return XZ_best;
+	}
+
+
+	public double CV_Tour(Tour tour, Instancia_Rahim inst, int t,int v){
+		double ret = Double.MAX_VALUE;
+		if(tour.lClientes.size()>0){
+			ret = 0;
+			int idAnt = 0;
+			for(Cliente c : tour.lClientes){
+				ret+= inst.getΔv()[v]*inst.getV_v()*inst.getΘ_ij()[idAnt][c.id] + inst.getΦj_t()[idAnt][t];
+			}
+//			ret+= inst.getΘ_ij()[tour.lClientes.getLast().id][0];
+			
+			ret+= inst.getΔv()[v]*inst.getV_v()*inst.getΘ_ij()[tour.lClientes.getLast().id][0] + inst.getΦj_t()[tour.lClientes.getLast().id][t];
+		}
+		return ret;
+	}
+
+	public double CV_TourTime(Tour tour, Instancia_Rahim inst){
+		double ret = Double.MAX_VALUE;
+		if(tour.lClientes.size()>0){
+			ret = 0;
+			int idAnt = 0;
+			for(Cliente c : tour.lClientes){
+				ret+= inst.getΘ_ij()[idAnt][c.id];
+			}
+			ret+= inst.getΘ_ij()[ tour.lClientes.getLast().id][0];
+		}
+		return ret;
+	}
+	
+	public double CV_custoSolucao(Instancia_Rahim inst, Variaveis_Rahim var ){
+
+		double ret = 0;
+		for (int t = 0; t < inst.getT(); t++) {
+			for (int v = 0; v < inst.getS(); v++) {
+				//				exprObj.addTerm(inst.getΨv()[v], model.getVarByName("Y"+t+"_"+v));
+				ret +=(inst.getΨv()[v]*var.getYt_v()[t][v]);
+
+				for (int i = 0; i < inst.getS(); i++) {
+					for (int j = 0; j < inst.getS()+1; j++) {
+						Double coeff = (inst.getΔv()[0]*inst.getV_v()*inst.getΘ_ij()[i][j])  + inst.getΦj_t()[i][t];							
+						//						exprObj.addTerm(coeff, model.getVarByName("X"+i+j+t+"_"+v));
+						ret +=(coeff*var.getXijt_v()[i][j][t][v]);
+					}
+				}
+			}
+		}
+
+		for (int t = 0; t < inst.getT(); t++) {
+			for (int j = 0; j < inst.getS(); j++) {
+				ret +=(inst.getΗj_t()[j][t]*var.getIjt()[j][t]);
+			}
+		}
+
+		return ret;
+	}
+
+	public Variaveis_Rahim translateGurobi(GRBModel model,Instancia_Rahim inst) throws GRBException{
+		Variaveis_Rahim ret = new Variaveis_Rahim();
+
+		int [][][][] Xijt_v = new int [inst.getS()+1][inst.getS()+1][inst.getT()][inst.getV()];
+		int[][] Yt_v = new int [inst.getT()][inst.getV()];
+		double[][] Ijt  = new double [inst.getS()+1][inst.getT()];
+		double[][][][] Qijt_v  = new double [inst.getS()+1][inst.getS()+1][inst.getT()][inst.getV()];
+		double[][] qjt = new double [inst.getS()+1][inst.getT()];
+
+		for (int i = 0; i < inst.getS()+1; i++) {
+			for (int j = 0; j < inst.getS()+1; j++) {
+				for (int t = 0; t < inst.getT(); t++) {
+					qjt[j][t] = model.getVarByName("q"+j+t).get(GRB.DoubleAttr.X);
+					Ijt[j][t] = model.getVarByName("I"+j+t).get(GRB.DoubleAttr.X);
+					for (int v = 0; v < inst.getV(); v++) {
+						Yt_v[t][v] = (int) model.getVarByName("Y"+t+"_"+v).get(GRB.DoubleAttr.X);
+						Xijt_v[i][j][t][v] = (int) model.getVarByName("X"+i+j+t+"_"+v).get(GRB.DoubleAttr.X);
+						Qijt_v[i][j][t][v] = model.getVarByName("Q"+i+j+t+"_"+v).get(GRB.DoubleAttr.X);
+					}
+				}
+			}
+		}
+
+		ret.setXijt_v(Xijt_v);
+		ret.setYt_v(Yt_v);
+		ret.setQijt_v(Qijt_v);
+		ret.setIjt(Ijt);
+		ret.setQjt(qjt);
+		ret.setCusto(model.get(GRB.DoubleAttr.ObjVal));
+
+		return ret;
+	}
+
+	public Variaveis_Rahim translateGurobiIA(GRBModel model,Instancia_Rahim inst) throws GRBException{
+		Variaveis_Rahim ret = new Variaveis_Rahim();
+
+		//int [][][][] Xijt_v = new int [inst.getS()+1][inst.getS()+1][inst.getT()][inst.getV()];
+		//	int[][] Yt_v = new int [inst.getT()][inst.getV()];
+		double[][] Ijt  = new double [inst.getS()+1][inst.getT()];
+//		double[][][][] Qijt_v  = new double [inst.getS()+1][inst.getS()+1][inst.getT()][inst.getV()];
+		double[][] qjt = new double [inst.getS()+1][inst.getT()];
+
+		for (int i = 1; i < inst.getS()+1; i++) {
+			for (int j = 1; j < inst.getS()+1; j++) {
+				for (int t = 1; t < inst.getT(); t++) {
+					Ijt[j][t] = model.getVarByName("I"+j+t).get(GRB.DoubleAttr.X);
+					qjt[j][t] = model.getVarByName("q"+j+t).get(GRB.DoubleAttr.X);
+					/*for (int v = 0; v < inst.getV(); v++) {
+						//Yt_v[t][v] = (int) model.getVarByName("Y"+t+"_"+v).get(GRB.DoubleAttr.X);
+					//	Xijt_v[i][j][t][v] = (int) model.getVarByName("X"+i+j+t+"_"+v).get(GRB.DoubleAttr.X);
+					//	Qijt_v[i][j][t][v] = model.getVarByName("Q"+i+j+t+"_"+v).get(GRB.DoubleAttr.X);
+					}*/
+				}
+			}
+		}
+
+		//ret.setXijt_v(Xijt_v);
+		//ret.setYt_v(Yt_v);
+		//ret.setQijt_v(Qijt_v);
+		ret.setIjt(Ijt);
+		ret.setQjt(qjt);
+		ret.setCusto(model.get(GRB.DoubleAttr.ObjVal));
+
+		return ret;
+	}
+	
+	public Variaveis_Rahim translateGurobiRP(GRBModel model,Instancia_Rahim inst) throws GRBException{
+		Variaveis_Rahim ret = new Variaveis_Rahim();
+
+		int [][][][] Xijt_v = new int [inst.getS()+1][inst.getS()+1][inst.getT()][inst.getV()];
+		int[][] Yt_v = new int [inst.getT()][inst.getV()];
+		double[][] Ijt  = new double [inst.getS()+1][inst.getT()];
+		double[][][][] Qijt_v  = new double [inst.getS()+1][inst.getS()+1][inst.getT()][inst.getV()];
+		//double[][] qjt = new double [inst.getS()+1][inst.getT()];
+
+		for (int i = 0; i < inst.getS()+1; i++) {
+			for (int j = 0; j < inst.getS()+1; j++) {
+				for (int t = 0; t < inst.getT(); t++) {
+				//	qjt[j][t] = model.getVarByName("q"+j+t).get(GRB.DoubleAttr.X);
+					Ijt[j][t] = model.getVarByName("I"+j+t).get(GRB.DoubleAttr.X);
+					for (int v = 0; v < inst.getV(); v++) {
+						Yt_v[t][v] = (int) model.getVarByName("Y"+t+"_"+v).get(GRB.DoubleAttr.X);
+						Xijt_v[i][j][t][v] = (int) model.getVarByName("X"+i+j+t+"_"+v).get(GRB.DoubleAttr.X);
+						Qijt_v[i][j][t][v] = model.getVarByName("Q"+i+j+t+"_"+v).get(GRB.DoubleAttr.X);
+					}
+				}
+			}
+		}
+
+		ret.setXijt_v(Xijt_v);
+		ret.setYt_v(Yt_v);
+		ret.setQijt_v(Qijt_v);
+		ret.setIjt(Ijt);
+		//ret.setQjt(qjt);
+		ret.setCusto(model.get(GRB.DoubleAttr.ObjVal));
+
+		return ret;
+	}
+	
+	public Variaveis_Rahim translateGurobiZero(GRBModel model,Instancia_Rahim inst,Variaveis_Rahim varZero) throws GRBException{
+		Variaveis_Rahim ret = new Variaveis_Rahim();
+
+		int [][][][] Xijt_v = varZero.getXijt_v();
+		int[][] Yt_v = varZero.getYt_v();
+		double[][] Ijt  = new double [inst.getS()+1][inst.getT()];
+		double[][][][] Qijt_v  = new double [inst.getS()+1][inst.getS()+1][inst.getT()][inst.getV()];
+		double[][] qjt = new double [inst.getS()+1][inst.getT()];
+
+		for (int i = 0; i < inst.getS()+1; i++) {
+			for (int j = 0; j < inst.getS()+1; j++) {
+				for (int t = 0; t < inst.getT(); t++) {
+					qjt[j][t] = model.getVarByName("q"+j+t).get(GRB.DoubleAttr.X);
+					Ijt[j][t] = model.getVarByName("I"+j+t).get(GRB.DoubleAttr.X);
+					for (int v = 0; v < inst.getV(); v++) {
+						//	Yt_v[t][v] = (int) model.getVarByName("Y"+t+"_"+v).get(GRB.DoubleAttr.X);
+						//	Xijt_v[i][j][t][v] = (int) model.getVarByName("X"+i+j+t+"_"+v).get(GRB.DoubleAttr.X);
+						Qijt_v[i][j][t][v] = model.getVarByName("Q"+i+j+t+"_"+v).get(GRB.DoubleAttr.X);
+					}
+				}
+			}
+		}
+
+		ret.setXijt_v(varZero.getXijt_v());
+		ret.setYt_v(varZero.getYt_v());
+		ret.setQijt_v(Qijt_v);
+		ret.setIjt(Ijt);
+		ret.setQjt(qjt);
+		ret.setCusto(model.get(GRB.DoubleAttr.ObjVal));
+
+		return ret;
+	}
+
+
+	public double frobenius_Norm(double gjt [][]){
+		double ret = 0;
+
+		for(int j = 1;j < gjt.length; j++){
+			for(int t = 1;t < gjt[j].length; t++){
+				ret+= Math.pow(gjt[j][t],2);
+			}
+		}
+
+		ret = Math.sqrt(ret);
+		return ret;
+	}
+}
