@@ -90,6 +90,13 @@ public class Parametros {
 	 * Fim da janela de atendimento
 	 */
 	public int[][] we_jt;
+	
+
+	/**
+	 * Time Delivery
+	 */
+	public int[][] td_jt;
+	
 	public int timeInit;
 
 
@@ -417,6 +424,7 @@ public class Parametros {
 		this.timeInit = 6*60;
 		this.ws_jt = new int[S][H];
 		this.we_jt = new int[S][H];
+		this.td_jt = new int[S][H];
 		double taxW = 0.5;// Quantos clientes tem janela
 		int inicJan = 480;// Inicio do horário de Janela possíveis - 8h
 		int fimJan = 1080;// fim do horário de Janela possíveis - 18h
@@ -432,6 +440,8 @@ public class Parametros {
 					this.ws_jt[i][t] = 0;
 					this.we_jt[i][t] = 1440;
 				}
+				this.td_jt[i][t] = (int)(10 + (120 - 10) * rand.nextDouble());
+				
 			}
 		}
 

@@ -39,6 +39,7 @@ public class SimullatedAnnealing_TW {
 	// incluir métodos para geração de vizinhos
 	public LinkedList<ArrayList<Client>> SimullatedAnnealing_TW_CVRP(Random rand,Parametros par) {
 		//Step SA-1
+		S = new LinkedList<ArrayList<Client>>();
 		S  = PFIH(par);
 		Sb = S;
 		//Step SA-2
@@ -90,6 +91,7 @@ public class SimullatedAnnealing_TW {
 
 			if(rotaAtual.size() == 0){
 				rotaAtual.add(clients[c]);
+				checkConstraint(par, rotaAtual);
 			}
 			else{
 				int bestIndice = -1;
@@ -124,14 +126,16 @@ public class SimullatedAnnealing_TW {
 				}
 			}
 		}		
-
+		if(rotaAtual.size() > 0){
+			ret.add(rotaAtual);
+		}
 		return ret;
 	}
 	public LinkedList<ArrayList<Client>> interchangeLSD(Parametros par, LinkedList<ArrayList<Client>> S,Random rand) {
-		LinkedList<ArrayList<Client>> ret = new LinkedList<ArrayList<Client>>();
+		LinkedList<ArrayList<Client>> ret = new LinkedList<ArrayList<Client>>(S);
 		Double CS = u.total_cost(S);
 		ArrayList<LinkedList<ArrayList<Client>>> NS = ConstroiNS(rand,S,par);
-		ret = S;
+		//ret = S;
 		for (int i = 0; i < NS.size(); i++) {
 			Double CS1 = u.total_cost(NS.get(i));
 			if(CS1 < CS){
@@ -168,15 +172,16 @@ public class SimullatedAnnealing_TW {
 				Rq = op1.get(0);
 				Rp = op1.get(1);
 
-
-				newAtu.add(Rp);
-				newAtu.add(Rq);
-				newAtu.addAll(rest);
-				//	NS.add(newS);
-				if(checkSolutionConstraint(par, newAtu)){
-					if(u.total_cost(newAtu) < u.total_cost(newS)){
-						newS = new LinkedList<>();
-						newS = newAtu;
+				if(Rp.size() > 0 && Rq.size() > 0){
+					newAtu.add(Rp);
+					newAtu.add(Rq);
+					newAtu.addAll(rest);
+					//	NS.add(newS);
+					if(checkSolutionConstraint(par, newAtu)){
+						if(u.total_cost(newAtu) < u.total_cost(newS)){
+							newS = new LinkedList<>();
+							newS = newAtu;
+						}
 					}
 				}
 			}
@@ -274,10 +279,10 @@ public class SimullatedAnnealing_TW {
 		ArrayList<LinkedList<ArrayList<Client>>> NS = new ArrayList<LinkedList<ArrayList<Client>>>();
 
 		for (int q = 0; q <S.size()-1; q++) {
-			ArrayList<Client> Rq = S.get(q);
+			ArrayList<Client> Rq = new ArrayList<Client>(S.get(q));
 
 			for (int p = q+1; p < S.size(); p++) {				
-				ArrayList<Client> Rp = S.get(p);
+				ArrayList<Client> Rp =  new ArrayList<Client>(S.get(p));
 				LinkedList<ArrayList<Client>> rest = new LinkedList<>();
 				for (int i = 0; i < S.size(); i++) {	
 					if(i != p && i != q);
@@ -335,6 +340,7 @@ public class SimullatedAnnealing_TW {
 		double timeChegadaAnt = 0D;
 		double timeWatingAnt = 0D;
 		double timeAnterior = par.timeInit;
+		double qtdAcum = 0;
 		for(int c = 0; c < rota.size(); c++)
 		{
 			double timeChegada = timeAnterior+hourToMinutes(par.θ_ij[idAnt][Integer.parseInt(rota.get(c).id)]);
@@ -343,7 +349,7 @@ public class SimullatedAnnealing_TW {
 				timeWating = rota.get(c).getTwa() - timeChegada;
 				//timeChegada = rota.get(c).getTwa();
 			}
-
+			
 			//Restrição 9
 			if(c>0){
 				if(timeChegadaAnt+hourToMinutes(par.θ_ij[idAnt][Integer.parseInt(rota.get(c).id)])+rota.get(c-1).getTs() +timeWatingAnt > timeChegada){
@@ -360,15 +366,26 @@ public class SimullatedAnnealing_TW {
 			double timeSaida =  timeChegada + rota.get(c).getTs() + timeWating;
 			timeservice += hourToMinutes(par.θ_ij[idAnt][Integer.parseInt(rota.get(c).id)])+rota.get(c).getTs()+ timeWating;
 
-
+			rota.get(c).setTa(timeChegada);
+			rota.get(c).setTd(timeSaida);
+			rota.get(c).setTw(timeWating);
+			
 			timeAnterior = timeSaida;
 			timeChegadaAnt = timeChegada;
 			timeWatingAnt = timeWating;
+
+			qtdAcum +=  rota.get(c).getDemand();
 			idAnt = Integer.parseInt(rota.get(c).id);
 		}
 
 		//Restrição 7
 		if(timeservice > par.Rv)
+		{
+			return false;
+		}
+
+		//Restrição 6
+		if(qtdAcum > par.kv)
 		{
 			return false;
 		}

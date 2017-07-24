@@ -8,6 +8,8 @@ public class Tour {
 	public double CV = 0;
 	public double travelTime;
 	public double totalcap;
+	public double [] ha;
+	public double [] hd;
 	public Tour(){
 		retails = new ArrayList<>();
 	}

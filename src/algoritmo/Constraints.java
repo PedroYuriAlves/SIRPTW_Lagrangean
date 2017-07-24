@@ -8,6 +8,7 @@ import gurobi.GRB;
 import gurobi.GRBException;
 import gurobi.GRBLinExpr;
 import gurobi.GRBModel;
+import gurobi.GRBQuadExpr;
 import instancias.Instancia;
 import instancias.Parametros;
 import instancias.Sol_XZ;
@@ -27,8 +28,6 @@ public class Constraints {
 						GRBLinExpr exprX = new GRBLinExpr();//Cria Expressão
 						exprX.addTerm(1.0, model.getVarByName("x"+"_"+i+"_"+j+"_"+t+"_"+v));
 						model.addConstr(exprX, GRB.EQUAL,xz_zero.x.Xijt_v[i][j][t][v], "cX0_i"+i+"_j"+j+"_t"+t+"_v"+v);
-
-
 					}
 				}		
 			}					
@@ -619,6 +618,307 @@ public class Constraints {
 			else{
 				if(Math.abs(RoundTo2Decimals(expr1) - RoundTo2Decimals(expr2))> gapAceito)
 					ret += ";"+ "c16_j"+j+"("+RoundTo2Decimals(expr1) +"<="+RoundTo2Decimals(expr2)+")";;						
+			}
+		}
+		return ret;
+	}
+
+	/********************Restrições de Tempo*****************************/
+
+	public static void constrTW6(Parametros par,GRBModel model) throws GRBException{	
+		for (int i = 0; i < par.S; i++) { //Para cada j
+			for (int j = 0; j < par.S; j++) { //Para cada j
+				for (int t = 1; t < par.H; t++) { //Para cada t		
+					for (int v = 0; v < par.V; v++) { //Para cada v				
+						GRBLinExpr expr1 = new GRBLinExpr();//Cria Expressão				
+						expr1.addTerm(1, model.getVarByName("h_"+j+"_"+t+"_"+v));
+
+						GRBLinExpr expr2 = new GRBLinExpr();//Cria Expressão				
+						expr2.addTerm(1, model.getVarByName("hd_"+i+"_"+t+"_"+v));
+						expr2.addConstant(par.θ_ij[i][j]);
+
+						GRBLinExpr expr3 = new GRBLinExpr();//Cria Expressão
+						expr3.addConstant(1);
+						expr3.addTerm(-1, model.getVarByName("x_"+i+"_"+j+"_"+t+"_"+v));
+						Double M = Double.MAX_VALUE;
+						expr2.multAdd(-M, expr3);
+						model.addConstr(expr1, GRB.GREATER_EQUAL, expr2, "ctw6_i"+i+"_j"+j+"_t"+t+"_v"+v);
+
+					}
+				}
+			}
+		}
+
+	}
+
+	public static String checkconstrTW6(Parametros par,Sol_XZ xz){	
+		String ret = "";
+		for (int i = 0; i < par.S; i++) { //Para cada j
+			for (int j = 0; j < par.S; j++) { //Para cada j
+				for (int t = 1; t < par.H; t++) { //Para cada t		
+					for (int v = 0; v < par.V; v++) { //Para cada v				
+						//						GRBLinExpr expr1 = new GRBLinExpr();//Cria Expressão	
+						double expr1 = 0;
+						//						expr1.addTerm(1, model.getVarByName("h_"+j+"_"+t+"_"+v));
+						expr1 += xz.z.hjtv[j][t][v];
+						//						GRBLinExpr expr2 = new GRBLinExpr();//Cria Expressão
+						double expr2 = 0;
+						//						expr2.addTerm(1, model.getVarByName("hd_"+i+"_"+t+"_"+v));
+						expr2 += xz.z.hd_jtv[j][t][v];						
+						//						expr2.addConstant(par.θ_ij[i][j]);
+						expr2 += par.θ_ij[i][j];
+						//						GRBLinExpr expr3 = new GRBLinExpr();//Cria Expressão
+						double expr3 = 0;
+						//						expr3.addConstant(1);
+						expr3 += 1;
+						//						expr3.addTerm(-1, model.getVarByName("x_"+i+"_"+j+"_"+t+"_"+v));
+						expr3 += -xz.x.Xijt_v[i][j][t][v];
+						Double M = Double.MAX_VALUE;
+						//						expr2.multAdd(-M, expr3);
+						expr2 += -M*(expr2);
+						//						model.addConstr(expr1, GRB.GREATER_EQUAL, expr2, "ctw6_i"+i+"_j"+j+"_t"+t+"_v"+v);
+						if(RoundTo2Decimals(expr1) >= RoundTo2Decimals(expr2)){
+						}
+						else{
+							if(Math.abs(RoundTo2Decimals(expr1) - RoundTo2Decimals(expr2))> gapAceito)
+								ret += ";"+ "ctw6_i"+i+"_j"+j+"_t"+t+"_v"+v+"("+RoundTo2Decimals(expr1) +">="+RoundTo2Decimals(expr2)+")";					
+						}
+					}
+				}
+			}
+		}
+		return ret;
+	}
+
+	public static void constrTW7(Parametros par,GRBModel model) throws GRBException{	
+
+		for (int j = 1; j < par.S; j++) { //Para cada j
+			for (int t = 1; t < par.H; t++) { //Para cada t		
+				for (int v = 0; v < par.V; v++) { //Para cada v
+
+					GRBLinExpr expr = new GRBLinExpr();//Cria Expressão
+					for (int i= 0; i < par.S; i++) { //Para cada s	
+						expr.addTerm(par.ws_jt[j][t],model.getVarByName("x_"+i+"_"+j+"_"+t+"_"+v));
+					}
+
+					GRBLinExpr expr1 = new GRBLinExpr();//Cria Expressão				
+					expr1.addTerm(1, model.getVarByName("h_"+j+"_"+t+"_"+v));
+
+					model.addConstr(expr, GRB.LESS_EQUAL, expr1, "ctw71_j"+j+"_t"+t+"_v"+v);
+
+					GRBLinExpr expr2 = new GRBLinExpr();//Cria Expressão
+					for (int i= 0; i < par.S; i++) { //Para cada s	
+						expr2.addTerm(par.we_jt[j][t],model.getVarByName("x_"+i+"_"+j+"_"+t+"_"+v));
+					}
+
+					expr1 = new GRBLinExpr();//Cria Expressão				
+					expr1.addTerm(1, model.getVarByName("h_"+j+"_"+t+"_"+v));
+
+					model.addConstr(expr1, GRB.LESS_EQUAL, expr2, "ctw72_j"+j+"_t"+t+"_v"+v);
+				}
+			}
+		}
+	}
+
+	public static String checkconstrTW7(Parametros par,Sol_XZ xz){	
+		String ret = "";
+		for (int j = 1; j < par.S; j++) { //Para cada j
+			for (int t = 1; t < par.H; t++) { //Para cada t		
+				for (int v = 0; v < par.V; v++) { //Para cada v
+
+					//					GRBLinExpr expr = new GRBLinExpr();//Cria Expressão
+					double expr = 0;
+					for (int i= 0; i < par.S; i++) { //Para cada s	
+						//						expr.addTerm(par.ws_jt[j][t],model.getVarByName("x_"+i+"_"+j+"_"+t+"_"+v));
+						expr += par.ws_jt[j][t]* xz.x.Xijt_v[i][j][t][v];
+					}
+
+					//					GRBLinExpr expr1 = new GRBLinExpr();//Cria Expressão	
+					double expr1 = 0;
+					//					expr1.addTerm(1, model.getVarByName("h_"+j+"_"+t+"_"+v));
+					expr1 +=xz.z.hjtv[j][t][v];
+					//					model.addConstr(expr, GRB.LESS_EQUAL, expr1, "ctw71_j"+j+"_t"+t+"_v"+v);
+					if(RoundTo2Decimals(expr) <= RoundTo2Decimals(expr1)){
+					}
+					else{
+						if(Math.abs(RoundTo2Decimals(expr) - RoundTo2Decimals(expr1))> gapAceito)
+							ret += ";"+ "ctw71_j"+j+"_t"+t+"_v"+v+"("+RoundTo2Decimals(expr) +"<="+RoundTo2Decimals(expr1)+")";					
+					}
+					//					GRBLinExpr expr2 = new GRBLinExpr();//Cria Expressão
+					double expr2 = 0;
+					for (int i= 0; i < par.S; i++) { //Para cada s	
+						//						expr2.addTerm(par.we_jt[j][t],model.getVarByName("x_"+i+"_"+j+"_"+t+"_"+v));
+						expr2 += par.we_jt[j][t] * xz.x.Xijt_v[i][j][t][v];
+					}
+
+					expr1 = 0;//Cria Expressão				
+					//					expr1.addTerm(1, model.getVarByName("h_"+j+"_"+t+"_"+v));
+					expr1 += xz.z.hjtv[j][t][v];
+					//					model.addConstr(expr1, GRB.LESS_EQUAL, expr2, "ctw72_j"+j+"_t"+t+"_v"+v);
+					if(RoundTo2Decimals(expr1) <= RoundTo2Decimals(expr2)){
+					}
+					else{
+						if(Math.abs(RoundTo2Decimals(expr1) - RoundTo2Decimals(expr2))> gapAceito)
+							ret += ";"+ "ctw72_j"+j+"_t"+t+"_v"+v+"("+RoundTo2Decimals(expr1) +"<="+RoundTo2Decimals(expr2)+")";					
+					}
+				}
+			}
+		}
+		return ret;
+	}
+	public static void constrTW9(Parametros par,GRBModel model) throws GRBException{	
+
+		String ret = "";
+		for (int v = 0; v < par.V; v++) { //Para cada v
+			for (int t = 1; t < par.H; t++) { //Para cada t					
+
+				GRBLinExpr expr1 = new GRBLinExpr();//Cria Expressão				
+				expr1.addTerm(1, model.getVarByName("hd_"+0+"_"+t+"_"+v));
+				model.addConstr(expr1, GRB.EQUAL, 0, "ctw9_t"+t+"_v"+v);
+
+			}
+		}
+
+	}
+	public static String checkconstrTW9(Parametros par,Sol_XZ xz){		
+		String ret ="";
+		for (int v = 0; v < par.V; v++) { //Para cada v
+			for (int t = 1; t < par.H; t++) { //Para cada t					
+
+
+				//				GRBLinExpr expr1 = new GRBLinExpr();//Cria Expressão
+				double expr1 = 0;
+				expr1 += xz.z.hd_jtv[0][t][v];
+				//				expr1.addTerm(1, model.getVarByName("hd_"+0+"_"+t+"_"+v));
+				//				model.addConstr(expr1, GRB.EQUAL, 0, "ctw9_t"+t+"_v"+v);
+
+				if(RoundTo2Decimals(expr1) == 0){
+				}
+				else{
+					if(Math.abs(RoundTo2Decimals(expr1) - 0)> gapAceito)
+						ret += ";"+ "ctw9_t"+t+"_v"+v+"("+RoundTo2Decimals(expr1) +"=="+RoundTo2Decimals(0)+")";					
+				}	
+
+			}
+		}
+		return ret;
+	}
+	public static void constrTW10(Parametros par,GRBModel model) throws GRBException{	
+		for (int j = 1; j < par.S; j++) { //Para cada j
+			for (int v = 0; v < par.V; v++) { //Para cada v
+				for (int t = 1; t < par.H; t++) { //Para cada t		
+					
+					
+					
+					GRBQuadExpr expr1 = new GRBQuadExpr();//Cria Expressão		
+					for (int i = 1; i < par.S; i++) { //Para cada j								
+						expr1.addTerm(1,model.getVarByName("x_"+i+"_"+j+"_"+t+"_"+v), model.getVarByName("hd_"+i+"_"+t+"_"+v));
+					}
+					
+					
+					GRBLinExpr expra = new GRBLinExpr();//Cria Expressão	
+					expra.addTerm(1, model.getVarByName("h_"+j+"_"+t+"_"+v));
+					expra.addConstant(par.td_jt[j][t]);
+					
+					GRBLinExpr exprAux= new GRBLinExpr();//Cria Expressão	
+					exprAux.addTerm(1, model.getVarByName("hAux_"+j+"_"+t+"_"+v));
+					model.addConstr(exprAux, GRB.EQUAL, expra, "ctw10Aux+j"+j+"_t"+t+"_v"+v);
+					
+					GRBQuadExpr expr2 = new GRBQuadExpr();//Cria Expressão	
+					for (int i = 1; i < par.S; i++) { //Para cada j	
+						expr1.addTerm(1,model.getVarByName("x_"+i+"_"+j+"_"+t+"_"+v), model.getVarByName("hAux_"+i+"_"+t+"_"+v));
+					}			
+					
+					
+					
+					model.addQConstr(expr1, GRB.EQUAL, expr2, "ctw10+j"+j+"_t"+t+"_v"+v);
+				}
+			}
+		}
+	}
+
+	public static String checkconstrTW10(Parametros par,Sol_XZ xz){	
+		String ret = "";
+		for (int j = 1; j < par.S; j++) { //Para cada j
+			for (int v = 0; v < par.V; v++) { //Para cada v
+				for (int t = 1; t < par.H; t++) { //Para cada t					
+					double expr1 = 0;
+					//					GRBLinExpr expr1 = new GRBLinExpr();//Cria Expressão				
+					//					expr1.addTerm(1, model.getVarByName("hd_"+j+"_"+t+"_"+v));
+					for (int i = 1; i < par.S; i++) { //Para cada j
+						expr1 += xz.x.Xijt_v[i][j][t][v]* xz.z.hd_jtv[j][t][v];	
+					}
+					//expr1 += xz.z.hd_jtv[j][t][v];	
+
+					//					GRBLinExpr expr2 = new GRBLinExpr();//Cria Expressão
+					double expr2 = 0;
+					//					expr2+=xz.z.hjtv[j][t][v];
+					Double haux = (xz.z.hjtv[j][t][v]+par.td_jt[j][t]);
+					for (int i = 1; i < par.S; i++) { //Para cada j
+						expr2+=xz.x.Xijt_v[i][j][t][v]*haux;
+					}
+					//					expr2.addTerm(1, model.getVarByName("h_"+j+"_"+t+"_"+v));
+					//					expr2.addConstant((1/par.DR)*par.td_jt[j][t]);
+					//					expr2 += (par.td_jt[j][t]);
+
+					//					model.addConstr(expr1, GRB.EQUAL, expr2, "ctw10+j"+j+"_t"+t+"_v"+v);
+
+					if(RoundTo2Decimals(expr1) == RoundTo2Decimals(expr2)){
+					}
+					else{
+						if(Math.abs(RoundTo2Decimals(expr1) - RoundTo2Decimals(expr2))> gapAceito)
+							ret += ";"+ "ctw10+j"+j+"_t"+t+"_v"+v+"("+RoundTo2Decimals(expr1) +"=="+RoundTo2Decimals(expr2)+")";					
+					}	
+				}
+			}
+		}
+		return ret;
+	}
+
+	public static void constrTW11(Parametros par,GRBModel model) throws GRBException{	
+
+		for (int j = 0; j < par.S; j++) { //Para cada j
+			for (int t = 1; t < par.H; t++) { //Para cada t		
+				for (int v = 0; v < par.V; v++) { //Para cada v				
+					GRBLinExpr expr1 = new GRBLinExpr();//Cria Expressão				
+					expr1.addTerm(1, model.getVarByName("h_"+j+"_"+t+"_"+v));
+					model.addConstr(expr1, GRB.GREATER_EQUAL, 0, "ctw111_j"+j+"_t"+t+"_v"+v);
+
+					GRBLinExpr expr2 = new GRBLinExpr();//Cria Expressão				
+					expr2.addTerm(1, model.getVarByName("hd_"+j+"_"+t+"_"+v));
+					model.addConstr(expr2, GRB.GREATER_EQUAL, 0, "ctw112_j"+j+"_t"+t+"_v"+v);
+				}
+			}
+		}
+	}
+	public static String checkconstrTW11(Parametros par,Sol_XZ xz){		
+		String ret = "";
+		for (int j = 0; j < par.S; j++) { //Para cada j
+			for (int t = 1; t < par.H; t++) { //Para cada t		
+				for (int v = 0; v < par.V; v++) { //Para cada v				
+					//					GRBLinExpr expr1 = new GRBLinExpr();//Cria Expressão				
+					double expr1 = 0;
+					//					expr1.addTerm(1, model.getVarByName("h_"+j+"_"+t+"_"+v));
+					expr1 +=xz.z.hjtv[j][t][v];					
+					//					model.addConstr(expr1, GRB.GREATER_EQUAL, 0, "ctw111_j"+j+"_t"+t+"_v"+v);
+					if(RoundTo2Decimals(expr1) >= RoundTo2Decimals(0)){
+					}
+					else{
+						if(Math.abs(RoundTo2Decimals(expr1) - RoundTo2Decimals(0))> gapAceito)
+							ret += ";"+ "ctw111_j"+j+"_t"+t+"_v"+v+"("+RoundTo2Decimals(expr1) +">="+RoundTo2Decimals(0)+")";					
+					}	
+					//					GRBLinExpr expr2 = new GRBLinExpr();//Cria Expressão
+					double expr2 = 0;
+					//					expr2.addTerm(1, model.getVarByName("hd_"+j+"_"+t+"_"+v));
+					expr2 += xz.z.hd_jtv[j][t][v];
+					//					model.addConstr(expr2, GRB.GREATER_EQUAL, 0, "ctw112_j"+j+"_t"+t+"_v"+v);
+					if(RoundTo2Decimals(expr2) >= RoundTo2Decimals(0)){
+					}
+					else{
+						if(Math.abs(RoundTo2Decimals(expr2) - RoundTo2Decimals(0))> gapAceito)
+							ret += ";"+ "ctw112_j"+j+"_t"+t+"_v"+v+"("+RoundTo2Decimals(expr1) +">="+RoundTo2Decimals(0)+")";					
+					}	
+				}
 			}
 		}
 		return ret;

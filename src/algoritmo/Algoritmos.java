@@ -47,7 +47,7 @@ public class Algoritmos {
 		int k = 1;	
 		int improveC_LRk = 0;
 		int kMax = 1000;
-		int MaxInproveC_LRk = 100;
+		int MaxInproveC_LRk = 30;
 int iteracoes = 0;
 //		double ω = rand.nextDouble();
 		 double ω = 2;
@@ -78,16 +78,16 @@ int iteracoes = 0;
 			// Step 2. (Computing the lower bound):
 			Sol_XZ Ck_IAP = new Sol_XZ();
 			Ck_IAP = translateGurobi(prob.IA_Pμk(inst, env, null), inst);
-			/*checkSolution = prob.verifySolution("IA_Pμk", inst, Ck_IAP);
+			checkSolution = prob.verifySolution("IA_Pμk", inst, Ck_IAP);
 			if (checkSolution.length() > 0) {
 				System.out.println("Erro2" + checkSolution);
-			}*/
+			}
 			Sol_XZ Ck_RTP = new Sol_XZ();
 			Ck_RTP = translateGurobi(prob.CVRP_Pμ(inst, env, null), inst);
-			/*checkSolution = prob.verifySolution("CVRP_Pμ", inst, Ck_RTP);
+			checkSolution = prob.verifySolution("CVRP_Pμ", inst, Ck_RTP);
 			if (checkSolution.length() > 0) {
 				System.out.println("Erro3" + checkSolution);
-			}*/
+			}
 			/*
 			 * Sol_XZ Ck_LRu = new Sol_XZ(); Ck_LRu =
 			 * translateGurobi(prob.CVLRμ( inst, env, null),inst); checkSolution
@@ -148,14 +148,11 @@ int iteracoes = 0;
 				Double custo_K = XZ_k.custo;
 				XZ_k.LB = (LB);
 				iteracoes++;
-				if(iteracoes == 10)
-				{
-					int x = 0;
-				}
-			/*	checkSolution = prob.verifySolution("CVLRμ", inst, XZ_k);
+			
+				checkSolution = prob.verifySolution("CVLRμ", inst, XZ_k);
 				if (checkSolution.length() > 0) {
 					System.out.println("Erro4" + checkSolution);
-				}*/
+				}
 				if (custo_K < UB) {
 					UB = custo_K;
 					VarXZ_Best = new Sol_XZ();
@@ -608,9 +605,16 @@ int iteracoes = 0;
 						Tour c = new Tour();
 						c.CV = 0;
 						c.retails = new ArrayList<Integer>();
+						c.ha = new double[cl.size()];
+						c.hd = new double[cl.size()];
+						
+						int cindex = 0;
 						for (Client integer : cl) {
 							if (integer.id != "0") {
 								c.retails.add(Integer.parseInt(integer.idSIRP));
+								c.ha[cindex] = integer.getTa()+integer.getTw();
+								c.hd[cindex] = integer.getTd();
+								cindex++; 
 							}
 						}
 						L_star.ltour.add(c);
@@ -813,6 +817,9 @@ int iteracoes = 0;
 		double[][] Ijt = new double[par.S][par.H];
 		double[][][][] Qijt_v = new double[par.S][par.S][par.H][par.V];
 		double[][] qjt = new double[par.S][par.H];
+		
+		double[][][] hjtv = new double[par.S][par.H][par.V];
+		double[][][] hd_jtv = new double[par.S][par.H][par.V];
 
 		qjt = XZ_IA.z.qjt;
 		Ijt = XZ_IA.z.Ijt;
@@ -838,6 +845,10 @@ int iteracoes = 0;
 					}
 					for (int j = 0; j < tour.retails.size(); j++) {
 						Xijt_v[i][tour.retails.get(j)][r.t][v] = 1;
+						
+						hjtv[tour.retails.get(j)][r.t][v] = tour.ha[j];
+						hd_jtv[tour.retails.get(j)][r.t][v] = tour.hd[j];
+						
 						Yt_v[r.t][v] = 1;
 						Qijt_v[i][tour.retails.get(j)][r.t][v] = QtdVeic;
 						QtdVeic -= qjt[tour.retails.get(j)][r.t];
@@ -858,6 +869,9 @@ int iteracoes = 0;
 		ret.z.Qijt_v = (Qijt_v);
 		ret.z.Ijt = (Ijt);
 		ret.z.qjt = (qjt);
+		
+		ret.z.hjtv = (hjtv);
+		ret.z.hd_jtv = (hd_jtv);
 		return ret;
 	}
 
@@ -1066,6 +1080,8 @@ int iteracoes = 0;
 		double[][] Ijt = new double[par.S][par.H];
 		double[][][][] Qijt_v = new double[par.S][par.S][par.H][par.V];
 		double[][] qjt = new double[par.S][par.H];
+		double[][][] hjtv = new double [par.S][par.H][par.V];
+		double[][][] hd_jtv = new double [par.S][par.H][par.V];
 
 		for (int i = 0; i < par.S; i++) {
 			for (int j = 0; j < par.S; j++) {
@@ -1083,6 +1099,13 @@ int iteracoes = 0;
 						if (model.getVarByName("Q" + "_" + i + "_" + j + "_" + t + "_" + v) != null)
 							Qijt_v[i][j][t][v] = RoundTo2Decimals(model
 									.getVarByName("Q" + "_" + i + "_" + j + "_" + t + "_" + v).get(GRB.DoubleAttr.X));
+						
+						if (model.getVarByName("h" + "_" + j + "_" + t + "_" + v) != null)
+							hjtv[j][t][v] = RoundTo2Decimals(model
+									.getVarByName("h" + "_" + j + "_" + t + "_" + v).get(GRB.DoubleAttr.X));
+						if (model.getVarByName("hd" + "_" + j + "_" + t + "_" + v) != null)
+							hd_jtv[j][t][v] = RoundTo2Decimals(model
+									.getVarByName("hd" + "_" + j + "_" + t + "_" + v).get(GRB.DoubleAttr.X));
 					}
 				}
 			}
@@ -1093,6 +1116,8 @@ int iteracoes = 0;
 		ret.z.Qijt_v = (Qijt_v);
 		ret.z.Ijt = (Ijt);
 		ret.z.qjt = (qjt);
+		ret.z.hjtv = (hjtv);
+		ret.z.hd_jtv = (hd_jtv);
 		ret.custo = (model.get(GRB.DoubleAttr.ObjVal));
 
 		return ret;

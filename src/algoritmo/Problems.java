@@ -21,7 +21,7 @@ public class Problems {
 		double custo = Double.MAX_VALUE;
 		// Read model from file
 		env = getEnv();
-		
+
 		GRBModel model = new GRBModel(env);
 		model.set(GRB.IntAttr.ModelSense,1);//Minimize
 		Variaveis var = new Variaveis();
@@ -30,6 +30,10 @@ public class Problems {
 		var.addVarQijt_v(par, model);
 		var.addVarIjt(par, model);
 		var.addVar_qjt(par, model);
+
+		var.addVar_hd_itv(par, model);
+		var.addVar_hitv(par, model);
+		var.addVar_hitvAux(par, model);
 		model.update();
 
 		if(xz != null){
@@ -49,6 +53,13 @@ public class Problems {
 		constraints.constr7(par, model);
 		constraints.constr9(par, model);
 		constraints.constr10(par, model);
+		
+		constraints.constrTW6(par, model);
+		constraints.constrTW7(par, model);
+		constraints.constrTW9(par, model);
+		constraints.constrTW10(par, model);
+		constraints.constrTW11(par, model);
+
 
 
 		GRBLinExpr exprObj = new GRBLinExpr();//Cria Expressão
@@ -105,6 +116,9 @@ public class Problems {
 		var.addVarQijt_v(par, model);
 		var.addVarIjt(par, model);
 		var.addVar_qjt(par, model);
+		var.addVar_hd_itv(par, model);
+		var.addVar_hitv(par, model);
+		var.addVar_hitvAux(par, model);
 		model.update();
 
 		if(xz != null){
@@ -124,8 +138,13 @@ public class Problems {
 		constraints.constr9(par, model);
 		constraints.constr10(par, model);
 		constraints.constr11(par, model);
-
-
+		
+		constraints.constrTW6(par, model);
+		constraints.constrTW7(par, model);
+		constraints.constrTW9(par, model);
+		constraints.constrTW10(par, model);
+		constraints.constrTW11(par, model);
+		
 		GRBLinExpr exprObj = new GRBLinExpr();//Cria Expressão
 
 		for (int t = 1; t < par.H; t++) {
@@ -232,7 +251,10 @@ public class Problems {
 		var.addVarYt_v(par, model);
 		var.addVarQijt_v(par, model);
 		var.addVarIjt(par, model);
-//		var.addVar_qjt(par, model);
+		var.addVar_hd_itv(par, model);
+		var.addVar_hitv(par, model);
+		var.addVar_hitvAux(par, model);
+		//		var.addVar_qjt(par, model);
 		model.update();
 
 		if(xz != null){
@@ -248,9 +270,12 @@ public class Problems {
 
 		constraints.constr6(par, model);
 		constraints.constr10(par, model);
-//		constraints.constr16(par, model);
-
-
+		//		constraints.constr16(par, model);
+		constraints.constrTW6(par, model);
+		constraints.constrTW7(par, model);
+		constraints.constrTW9(par, model);
+		constraints.constrTW10(par, model);
+		constraints.constrTW11(par, model);
 
 
 		GRBLinExpr exprObj = new GRBLinExpr();
@@ -326,6 +351,9 @@ public class Problems {
 		var.addVarQijt_v(par, model);
 		var.addVarIjt(par, model);
 		var.addVar_qjt(par, model);
+		var.addVar_hd_itv(par, model);
+		var.addVar_hitv(par, model);
+		var.addVar_hitvAux(par, model);
 
 		model.update();
 
@@ -335,7 +363,7 @@ public class Problems {
 		if(par.I_j0 != null && par.I_j0.length > 0 && par.restrInv == 1){
 			constraints.constr_Ij0(par,model);
 		}
-
+		constraints.constrTW6(par, model);
 		constraints.constr7(par, model);
 		constraints.constr9(par, model);
 		constraints.constr11(par, model);
@@ -346,9 +374,12 @@ public class Problems {
 
 		constraints.constr6(par, model);
 		constraints.constr10(par, model);
-//		constraints.constr16(par, model);
-
-
+		//		constraints.constr16(par, model);
+		constraints.constrTW6(par, model);
+		constraints.constrTW7(par, model);
+		constraints.constrTW9(par, model);
+		constraints.constrTW10(par, model);
+		constraints.constrTW11(par, model);
 
 
 		GRBLinExpr exprObj = new GRBLinExpr();
@@ -419,7 +450,7 @@ public class Problems {
 
 	public String verifySolution(String problem,Parametros par, Sol_XZ xz ){
 		String ret = "";
-		
+
 		if(problem == "CVα") ret += constraints.checkconstr_Zero(par, xz);
 		if(problem != "IA_Pμk") ret += constraints.checkconstr2(par, xz);	
 		if(problem != "IA_Pμk") ret += constraints.checkconstr3(par, xz);
@@ -431,7 +462,15 @@ public class Problems {
 		if(problem != "CVRP_Pμ") ret += constraints.checkconstr9(par, xz);
 		if(problem != "IA_Pμk") ret += constraints.checkconstr10(par, xz);
 		if(problem != "CVRP_Pμ" && problem != "CV") ret += constraints.checkconstr11(par, xz);
-//		if(problem != "CV" && problem != "CVα" && problem != "IA_Pμk" ) ret += constraints.checkconstr16(par, xz);
+		
+		if(problem != "IA_Pμk") ret += constraints.checkconstrTW6(par, xz);
+		if(problem != "IA_Pμk") ret += constraints.checkconstrTW7(par, xz);
+		if(problem != "IA_Pμk") ret += constraints.checkconstrTW9(par, xz);
+		if(problem != "IA_Pμk") ret += constraints.checkconstrTW10(par, xz);
+		if(problem != "IA_Pμk") ret += constraints.checkconstrTW11(par, xz);
+		
+		
+		//		if(problem != "CV" && problem != "CVα" && problem != "IA_Pμk" ) ret += constraints.checkconstr16(par, xz);
 		return ret;
 	}
 }

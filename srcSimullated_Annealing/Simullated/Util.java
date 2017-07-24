@@ -48,7 +48,7 @@ public class Util{
 			clients[i+1].setTwa(par.ws_jt[SRt.get(i)][t]);
 			clients[i+1].setTwd(par.we_jt[SRt.get(i)][t]);
 			clients[i+1].setTwa(par.ws_jt[SRt.get(i)][t]);
-			clients[i+1].setTs(15); // Tempo de Serviço
+			clients[i+1].setTs(par.td_jt[SRt.get(i)][t]); // Tempo de Serviço
 		}
 
 

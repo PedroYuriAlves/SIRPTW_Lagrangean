@@ -48,7 +48,7 @@ public class Variaveis {
 				}
 			}
 		}
-		
+
 		return Qijt_v;
 	}
 	public GRBVar[][][][] addVarQijt_v(Parametros par,GRBModel model,int nV) throws GRBException{
@@ -64,10 +64,10 @@ public class Variaveis {
 				}
 			}
 		}
-		
+
 		return Qijt_v;
 	}
-	
+
 	public GRBVar[][] addVar_qjt(Parametros par,GRBModel model) throws GRBException{
 		GRBVar[][] qjt = new GRBVar[par.S][par.H];
 		for (int j = 0; j < par.S; j++) {
@@ -89,5 +89,44 @@ public class Variaveis {
 		}
 		return Ijt;
 	}
-
+	/**********************Variaveis de Tempo *********************************/
+	public GRBVar[][][] addVar_hitv(Parametros par,GRBModel model) throws GRBException{
+		GRBVar[][][] hitv = new GRBVar[par.S][par.H][par.V];
+		for (int j = 0; j < par.S; j++) {
+			for (int t = 0; t < par.H; t++) {
+				for (int v = 0; v < par.V; v++) {					
+					hitv[j][t][v]  = model.addVar(0, 1440,1, GRB.INTEGER,
+							"h_"+j+"_"+t+"_"+v);
+					model.update();		
+				}
+			}
+		}
+		return hitv;
+	}
+	public GRBVar[][][] addVar_hitvAux(Parametros par,GRBModel model) throws GRBException{
+		GRBVar[][][] hitv = new GRBVar[par.S][par.H][par.V];
+		for (int j = 0; j < par.S; j++) {
+			for (int t = 0; t < par.H; t++) {
+				for (int v = 0; v < par.V; v++) {					
+					hitv[j][t][v]  = model.addVar(0, 1440,1, GRB.INTEGER,
+							"hAux_"+j+"_"+t+"_"+v);
+					model.update();		
+				}
+			}
+		}
+		return hitv;
+	}
+	public GRBVar[][][] addVar_hd_itv(Parametros par,GRBModel model) throws GRBException{
+		GRBVar[][][] hd_itv = new GRBVar[par.S][par.H][par.V];
+		for (int j = 0; j < par.S; j++) {
+			for (int t = 0; t < par.H; t++) {
+				for (int v = 0; v < par.V; v++) {					
+					hd_itv[j][t][v]  = model.addVar(0, 1440,1, GRB.INTEGER,
+							"hd_"+j+"_"+t+"_"+v);
+					model.update();		
+				}
+			}
+		}
+		return hd_itv;
+	}
 }
