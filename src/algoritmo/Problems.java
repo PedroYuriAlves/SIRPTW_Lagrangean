@@ -16,7 +16,7 @@ public class Problems {
 		env.set(GRB.DoubleParam.NodefileStart, 0.5);
 		return env;
 	}
-	static String path = "C:\\Users\\Krespo\\Desktop\\Testes_SIRP";
+	static String path = "C:\\Users\\kresp\\workspace\\Testes_SIRP";
 	public  GRBModel CV(Parametros par, GRBEnv env, Sol_XZ xz) throws GRBException{
 		double custo = Double.MAX_VALUE;
 		// Read model from file

@@ -325,8 +325,10 @@ public class SimullatedAnnealing_TW {
 	}
 
 	public double hourToMinutes(double hour){
+		
 		double min = hour*60;
 		return min;
+		
 	}
 	public boolean checkConstraint(Parametros par ,ArrayList<Client> rota){
 
@@ -341,6 +343,7 @@ public class SimullatedAnnealing_TW {
 		double timeWatingAnt = 0D;
 		double timeAnterior = par.timeInit;
 		double qtdAcum = 0;
+		
 		for(int c = 0; c < rota.size(); c++)
 		{
 			double timeChegada = timeAnterior+hourToMinutes(par.θ_ij[idAnt][Integer.parseInt(rota.get(c).id)]);

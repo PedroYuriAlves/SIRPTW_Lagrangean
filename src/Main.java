@@ -17,15 +17,74 @@ import instancias.Parametros;
 import instancias.Sol_XZ;
 import instancias.Variaveis_Rahim;
 
+import jxl.Cell;
+import jxl.Sheet;
+import jxl.Workbook;
+import jxl.read.biff.BiffException;
+
 public class Main {
 
-	public static void main(String[] args) throws GRBException, IOException, ScriptException {
+	public static void main(String[] args) throws GRBException, IOException, ScriptException, BiffException {
 		// TODO Auto-generated method stub
-		File file = new File("C:\\Users\\Krespo\\Desktop\\Testes_SIRP\\Instancias_SIRP15_3.csv");
-		File fileStandardDistribution = new File("C:\\Users\\Krespo\\Desktop\\Testes_SIRP\\Tabela_Distrib_Normal_Z.csv");
+		File file = new File("C:\\Users\\kresp\\workspace\\Testes_SIRP\\Instancias_SIRP50_3.csv");
+		File fileStandardDistribution = new File("C:\\Users\\kresp\\workspace\\Testes_SIRP\\Tabela_Distrib_Normal_Z.csv");
+		File fileReal = new File("C:\\Users\\kresp\\workspace\\Testes_SIRP\\Tabela_Caso_Real_final.xls");
 		List<String> lines = Files.readAllLines(file.toPath(), 
 				StandardCharsets.UTF_8);
 		int c = 0;
+
+		Workbook wReal=Workbook.getWorkbook(fileReal);
+
+		Sheet matrizDist = wReal.getSheet("Matriz Dist");
+		Sheet geoRef = wReal.getSheet("Georef");
+		Sheet Demanda = wReal.getSheet("Demanda");
+
+		int rowGeoRef = geoRef.getRows();
+		int colGeoRef = geoRef.getColumns();
+
+
+		double[][] mDist = null;
+		double[] lat = null;
+		double[] lng = null;
+		double[] demanda = null;
+		int rowDemanda = Demanda.getRows();
+		int colDemanda = Demanda.getColumns();
+
+		if(rowGeoRef > 0 && rowDemanda > 0){
+ 			lat = new double[rowGeoRef-1];
+			lng = new double[rowGeoRef-1];
+			demanda = new double [rowDemanda-1];
+			for(int x = 1; x < rowGeoRef; x++){
+				if("".equals(geoRef.getCell(1,x).getContents().toString()))break;
+				lat[x-1] = Double.parseDouble(geoRef.getCell(2,x).getContents().toString().replace(',', '.'));
+				lng[x-1] = Double.parseDouble(geoRef.getCell(3,x).getContents().toString().replace(',', '.'));
+				demanda[x-1] = Double.parseDouble(Demanda.getCell(1,x).getContents().toString().replace(',', '.'));
+			}
+		}
+
+		int rowMatriz = matrizDist.getRows();
+		int colMatriz = matrizDist.getColumns();
+
+		if(rowMatriz > 0){
+			mDist = new double[rowMatriz-1][rowGeoRef-1];
+			int i = 0;
+			int j = 0;
+			for(int x = 1; x < rowMatriz; x++){
+				if("".equals(matrizDist.getCell(0,x).getContents().toString()) ||"".equals(matrizDist.getCell(1,x).getContents().toString()) )break;
+				i = Integer.parseInt(matrizDist.getCell(0,x).getContents().toString());
+				j = Integer.parseInt(matrizDist.getCell(1,x).getContents().toString());
+				mDist[i][j] = Double.parseDouble(matrizDist.getCell(2,x).getContents().toString().replace(',', '.'));
+
+				/*j++;
+				if(j >= rowGeoRef-1){
+					j = 0;
+					i++;
+				}*/
+			}
+		}
+
+
+
 
 		boolean execOtimo = false;
 		boolean execRahim = true;
@@ -43,9 +102,10 @@ public class Main {
 		long [] randSeeds15_3 = {40,22,3,4,5,7,8,9,11,34,45,21,31,40,60,32,41,63,33,40,60,32,41,63,33,40,60,32,41,63,33,40,60,32,41,63,33,40,60,32,41,63,33,40,60,32,41,63,33,40,60,32,41,63,33,40,60,32,41,63,33,40,60,32,41,63,33,40,60,32,41,63,33};
 		//		long [] randSeeds = {40,60,32,41,63,33};
 		//		long [] randSeeds = {40,60,32,41,63,33};
-		//		long [] randSeeds = {40,60,32,41,63,33};
+		//		long [] randSeeds = {40,60,32,41,63,33};	
 
-		long [] randSeeds = randSeeds15_3;
+		long [] randSeeds = randSeeds15_3;				
+
 		int iSeed = 0;
 		for (String line : lines) {
 			if(c == 0){
@@ -63,6 +123,10 @@ public class Main {
 				if(seed != 0){  
 					rand = new Random(seed);
 				}				
+
+
+
+
 
 				if(columns.length > 0){
 					if(!columns[0].trim().equals("*")){
@@ -121,7 +185,9 @@ public class Main {
 								//arquivo padrao<<<<<<
 								if(print)System.out.println("Instancia:" + columns[0]);
 								Parametros inst = new Parametros(S, H, τt, kvRange, ψvRange, v_v, δv_tRange, η_itRange, ϕj_tRange,  V_iRange, d_jtRange,RrtRange, tamXSquare, tamYSquare,I_j0Range
-										,rand,wj_Range);
+										,rand,wj_Range,
+										mDist,lat,lng, demanda);
+//								null,null,null, null);
 								//								inst.inicializaPadrao();
 
 								inst.alg = Integer.parseInt(columns[25]);//Novos Parametros
@@ -192,7 +258,7 @@ public class Main {
 									long elapsedTime = stopTime - startTime;						  
 									Double timeSeconds =((double)elapsedTime/(double)1000); 
 									writer.append(Name+";"+String.valueOf(XZ_OTIMO.custo).replace(".", ",")+";"+String.valueOf(timeSeconds).replace(".", ","));
-									
+
 									String check = prob.verifySolution("CVLRμ", inst, XZ_OTIMO);
 									System.out.println("Erro Otimo "+check);
 									/*Calcula Ótimo**/
@@ -202,7 +268,7 @@ public class Main {
 								}
 								if(execRahim){
 									startTime = System.currentTimeMillis();
-									Sol_XZ Best = alg.algoritmo1(envRahim,inst, XZ_0,print,rand);
+									Sol_XZ Best = alg.algoritmo1(envRahim,inst, XZ_0,print,rand,startTime);
 									long stopTime = System.currentTimeMillis();
 									long elapsedTime = stopTime - startTime;						  
 									Double timeSeconds =((double)elapsedTime/(double)1000); 

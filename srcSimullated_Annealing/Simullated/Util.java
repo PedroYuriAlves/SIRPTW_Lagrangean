@@ -258,5 +258,14 @@ public class Util{
 
 		return true;		
 	}
-
+	public Client getClienteId(int id){
+		if(clients != null){
+			for (Client client : clients) {
+				if(client.idSIRP.equals(String.valueOf(id))){
+					return client;
+				}
+			}
+		}
+		return null;
+	}
 }

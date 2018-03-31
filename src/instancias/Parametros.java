@@ -90,13 +90,13 @@ public class Parametros {
 	 * Fim da janela de atendimento
 	 */
 	public int[][] we_jt;
-	
+
 
 	/**
 	 * Time Delivery
 	 */
 	public int[][] td_jt;
-	
+
 	public int timeInit;
 
 
@@ -349,7 +349,8 @@ public class Parametros {
 
 	public Parametros(int S,int H,int τt,
 			int[] kvRange,double[] ψvRange,int v_v, int[]δv_tRange,double[] η_itRange,double[] ϕj_tRange,int[]V_iRange,double[]d_jtRange,
-			double[] RrtRange,int tamXSquare,int tamYSquare,double[]Ij0_Range,Random rand,int[]wab_Range) throws IndexOutOfBoundsException{
+			double[] RrtRange,int tamXSquare,int tamYSquare,double[]Ij0_Range,Random rand,int[]wab_Range
+			,double[][] mDist,double[] lat,double[] lng, double[] demanda) throws IndexOutOfBoundsException{
 
 
 		if(kvRange.length != 2)throw new IndexOutOfBoundsException("Intervalo 'kvRange' com tamanho incorreto: Deve conter [min,max]");
@@ -361,7 +362,16 @@ public class Parametros {
 		if(RrtRange.length != 2)throw new IndexOutOfBoundsException("Intervalo 'RrtRange' com tamanho incorreto: Deve conter [min,max]");
 		if(Ij0_Range.length != 2)throw new IndexOutOfBoundsException("Intervalo 'Ij0_Range' com tamanho incorreto: Deve conter [min,max]");
 		if(wab_Range.length != 2)throw new IndexOutOfBoundsException("Intervalo 'wab_Range' com tamanho incorreto: Deve conter [min,max]");
-
+		
+		if(demanda != null){
+			S = 0;
+			for (double d : demanda) {
+				if(d != 0){
+					S++;
+				}
+			}
+		}
+		
 		this.S = S;
 		this.H = H;// Para contar no array o tempo 0
 
@@ -425,12 +435,14 @@ public class Parametros {
 		this.ws_jt = new int[S][H];
 		this.we_jt = new int[S][H];
 		this.td_jt = new int[S][H];
-		double taxW = 0.5;// Quantos clientes tem janela
+		double taxW = 1;// Quantos clientes tem janela
+//				double taxW = 0.5;// Quantos clientes tem janela
+//		double taxW = 0;// Quantos clientes tem janela
 		int inicJan = 480;// Inicio do horário de Janela possíveis - 8h
 		int fimJan = 1080;// fim do horário de Janela possíveis - 18h
 		for(int i = 0;i < S; i++){
 			for(int t = 0; t < H; t++){
-				if(rand.nextDouble() < taxW){
+				if(rand.nextDouble() <= taxW){
 
 					int tamanhoJanela = (int)(wab_Range[0] + (wab_Range[1] - wab_Range[0]) * rand.nextDouble());					
 					this.ws_jt[i][t] = (int)(inicJan + ((fimJan-tamanhoJanela) - inicJan) * rand.nextDouble());
@@ -441,7 +453,7 @@ public class Parametros {
 					this.we_jt[i][t] = 1440;
 				}
 				this.td_jt[i][t] = (int)(10 + (120 - 10) * rand.nextDouble());
-				
+
 			}
 		}
 
@@ -471,13 +483,18 @@ public class Parametros {
 			}
 		}
 		for(int j = 1;j < S; j++){
-			double media = 0;
-			for(int t = 0; t < H; t++){
-				media += this.d_jt[j][t];
-			}
-			this.Dj[j] = media/this.d_jt[j].length;
-			// Média - Esperança
 
+			if(demanda != null){
+				this.Dj = demanda;
+			}
+			else{
+				double media = 0;
+				for(int t = 0; t < H; t++){
+					media += this.d_jt[j][t];
+				}
+				this.Dj[j] = media/this.d_jt[j].length;
+				// Média - Esperança
+			}
 
 			//Variancia
 
@@ -501,23 +518,34 @@ public class Parametros {
 
 		this.iPosX = new double[S];
 		this.iPosY = new double[S];
-		for(int i = 1;i < S; i++){
-			iPosX[i] = 0 + (tamXSquare - 0) * rand.nextDouble();
-			iPosY[i] = 0 + (tamYSquare - 0) * rand.nextDouble();
+		if(lat == null && lng == null){
+			for(int i = 1;i < S; i++){
+				iPosX[i] = 0 + (tamXSquare - 0) * rand.nextDouble();
+				iPosY[i] = 0 + (tamYSquare - 0) * rand.nextDouble();
+			}
+			iPosX[0] = tamXSquare/2;
+			iPosY[0] = tamYSquare/2;
 		}
-		iPosX[0] = tamXSquare/2;
-		iPosY[0] = tamYSquare/2;
+		else{
+			iPosX = lng;
+			iPosY = lat;
+		}
 
 		//	this.b_c_i0 = new double[S];
 		this.c_ij = new double[S][S];
 		this.θ_ij = new double[S][S];
+		if(mDist != null){
+			c_ij = mDist;
+		}
 		for(int i = 0;i < S; i++){
 			for(int j = 0;j < S;j++){
 				if(j == 0 && i > 0){
 					//					this.b_c_i0[i] = f.dCalculaDist(this.iPosX[i],this.iPosY[i], this.iPosX[j], this.iPosY[j]);
 					//					this.b_c_i0.put(String.valueOf(i), f.dCalculaDist(this.iPosX[i],this.iPosY[i], this.iPosX[j], this.iPosY[j]));
 				}
-				this.c_ij[i][j] = f.dCalculaDist(this.iPosX[i],this.iPosY[i], this.iPosX[j], this.iPosY[j]);
+				if(mDist == null){
+					this.c_ij[i][j] = f.dCalculaDist(this.iPosX[i],this.iPosY[i], this.iPosX[j], this.iPosY[j]);
+				}
 				this.θ_ij[i][j] = this.c_ij[i][j]/this.ν_v;
 				//				θ_ij em Horas!
 			}

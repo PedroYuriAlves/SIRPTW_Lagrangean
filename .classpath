@@ -7,5 +7,6 @@
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.8"/>
 	<classpathentry kind="lib" path="D:/gurobi651/win64/lib/gurobi.jar"/>
 	<classpathentry kind="lib" path="C:/jython2.7.0/jython.jar"/>
+	<classpathentry kind="lib" path="D:/Desenvolvimento/Java/workspace/SIRP_Lagrangian_GUROBI_v5-Quali/jxl.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

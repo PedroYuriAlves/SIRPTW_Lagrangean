@@ -33,7 +33,7 @@ public class Algoritmos {
 
 	Boolean print;
 
-	public Sol_XZ algoritmo1(GRBEnv env, Parametros inst, Sol_XZ XZ_0, Boolean p, Random rand)
+	public Sol_XZ algoritmo1(GRBEnv env, Parametros inst, Sol_XZ XZ_0, Boolean p, Random rand, long startTime)
 			throws GRBException, ScriptException {
 
 		this.print = p;
@@ -48,15 +48,16 @@ public class Algoritmos {
 		int improveC_LRk = 0;
 		int kMax = 1000;
 		int MaxInproveC_LRk = 30;
-int iteracoes = 0;
-//		double ω = rand.nextDouble();
-		 double ω = 2;
+		int iteracoes = 0;
+		double maxHourProc = 5;
+		//		double ω = rand.nextDouble();
+		double ω = 2;
 		double[][] μjt = new double[inst.S][inst.H];
 		for (int j = 0; j < inst.S; j++) {
 			for (int t = 0; t < inst.H; t++) {
 				μjt[j][t] = rand.nextDouble();
 				// μjt[j][t] = -0.5;
-//				 μjt[j][t] = 0;
+				//				 μjt[j][t] = 0;
 				// μjt[j][t] = μ;
 			}
 		}
@@ -139,8 +140,9 @@ int iteracoes = 0;
 				case 5:
 					XZ_k = algoritmo2_Simullated_AnnealingTW(Ck_IAP, inst, XZ_0, UB, rand);
 					break;
-				default:
-					XZ_k = algoritmo2(Ck_IAP, inst, XZ_0, UB);
+				case 6:
+				default:					
+					XZ_k = algoritmo2(Ck_IAP, inst, XZ_0, UB, inst.alg);
 					break;
 				}
 
@@ -148,7 +150,7 @@ int iteracoes = 0;
 				Double custo_K = XZ_k.custo;
 				XZ_k.LB = (LB);
 				iteracoes++;
-			
+
 				checkSolution = prob.verifySolution("CVLRμ", inst, XZ_k);
 				if (checkSolution.length() > 0) {
 					System.out.println("Erro4" + checkSolution);
@@ -207,7 +209,11 @@ int iteracoes = 0;
 			inst.μjt = μjtK;
 
 			// Step 5. (Stopping rule):
-			if (k < kMax && improveC_LRk < MaxInproveC_LRk) {
+			long checkTime = System.currentTimeMillis();
+			long elapsedTime = checkTime - startTime;						  
+			Double timeSeconds =((double)elapsedTime/(double)1000); 
+
+			if (k < kMax && improveC_LRk < MaxInproveC_LRk && timeSeconds < (maxHourProc * 60 * 60)) {
 				k++;
 				continue;
 			} else {
@@ -222,7 +228,56 @@ int iteracoes = 0;
 		return VarXZ_Best;
 	}
 
-	public boolean validaTour(Tour c, Parametros inst) {
+	public boolean validaTour(Tour c, Parametros inst, int alg) {
+
+		double timeservice = 0D;
+		int idAnt = 0;
+		double timeChegadaAnt = 0D;
+		double timeWatingAnt = 0D;
+		double timeAnterior = inst.timeInit;
+		double qtdAcum = 0;
+
+		if(alg == 6){
+			for(int indexC = 0; indexC < c.clientes.size(); indexC++)
+			{
+				double timeChegada = timeAnterior+hourToMinutes(inst.θ_ij[idAnt][Integer.parseInt(c.clientes.get(indexC).id)]);
+				double timeWating = 0;
+				if(timeChegada < c.clientes.get(indexC).getTwa()){
+					timeWating = c.clientes.get(indexC).getTwa() - timeChegada;
+					//timeChegada = rota.get(c).getTwa();
+				}
+
+				//Restrição 9
+				if(indexC>0){
+					if(timeChegadaAnt+hourToMinutes(inst.θ_ij[idAnt][Integer.parseInt(c.clientes.get(indexC).id)])+c.clientes.get(indexC-1).getTs() +timeWatingAnt > timeChegada){
+						return false;
+					}
+				}
+
+				//Restrição 10
+				if(!(c.clientes.get(indexC).getTwa()<= timeChegada+timeWating && timeChegada+timeWating <= c.clientes.get(indexC).getTwd())){
+					return false;
+				}
+				if(timeWating > 60){
+					return false;
+				}
+				c.clientes.get(indexC).setTa(timeChegada);
+				double timeSaida =  timeChegada + c.clientes.get(indexC).getTs() + timeWating;
+				timeservice += hourToMinutes(inst.θ_ij[idAnt][Integer.parseInt(c.clientes.get(indexC).id)])+c.clientes.get(indexC).getTs()+ timeWating;
+
+				c.clientes.get(indexC).setTa(timeChegada);
+				c.clientes.get(indexC).setTd(timeSaida);
+				c.clientes.get(indexC).setTw(timeWating);
+
+				timeAnterior = timeSaida;
+				timeChegadaAnt = timeChegada;
+				timeWatingAnt = timeWating;
+
+				qtdAcum +=  c.clientes.get(indexC).getDemand();
+				idAnt = Integer.parseInt(c.clientes.get(indexC).id);
+			}
+		}
+
 		if (c.totalcap > inst.kv) {
 			return false;
 		}
@@ -233,7 +288,7 @@ int iteracoes = 0;
 		return true;
 	}
 
-	public Sol_XZ algoritmo2(Sol_XZ XZ_Best, Parametros inst, Sol_XZ var, Double UB) throws GRBException {
+	public Sol_XZ algoritmo2(Sol_XZ XZ_Best, Parametros inst, Sol_XZ var, Double UB,int alg) throws GRBException {
 		if (print) {
 			System.out.println();
 			System.out.println("Algorithm 2: (The Lagrangian heuristic algorithm for MP-DAIRPα)");
@@ -255,12 +310,18 @@ int iteracoes = 0;
 					System.out.println("A2 - Step 0. (Initialization):");
 					System.out.println();
 				}
+
+				Util z = new Util();				
+				z.inicializa(SRt, XZ_Best, inst, t);
+				Simullated.Client[] clients = z.clients;
+
 				Route tempRoute = new Route();
 				tempRoute.v = 0;
 				for (Integer j : SRt) {
 					if (inst.θ_ij[0][j] + inst.θ_ij[j][0] <= inst.τt) {
 						Tour tour = new Tour();
 						tour.retails.add(j);
+						tour.clientes.add(z.getClienteId(j));
 						tour.totalcap = XZ_Best.z.qjt[j][t];
 						tempRoute.ltour.add(tour);
 					} else {
@@ -295,7 +356,7 @@ int iteracoes = 0;
 							C_Plus = TSP1(inst, C_Plus);
 							C_Plus.CV = custoCV(XZ_Best, L_star, C_Plus, inst, t);
 							// OK
-							if (!validaTour(C_Plus, inst)) {
+							if (!validaTour(C_Plus, inst, alg)) {
 								C_Plus = new Tour();
 							} else {
 								if (C_Plus.CV < singleList.get(i).CV + singleList.get(j).CV) {
@@ -330,10 +391,14 @@ int iteracoes = 0;
 					c.travelTime = 0;
 					c.totalcap = 0;
 					c.CV = custoCV(XZ_Best, L_star, c, inst, t);
+					c.ha = new double [c.retails.size()];
+					c.hd = new double [c.retails.size()];
 					for (int i = 0; i < c.retails.size(); i++) {
 						Tmin += inst.θ_ij[ant][c.retails.get(i)];
 						c.travelTime += inst.θ_ij[ant][c.retails.get(i)];
 						c.totalcap += XZ_Best.z.qjt[c.retails.get(i)][t];
+						c.ha[i] = c.clientes.get(i).getTa()+ c.clientes.get(i).getTw();
+						c.hd[i] =  c.clientes.get(i).getTd();
 						ant = c.retails.get(i);
 
 					}
@@ -437,7 +502,7 @@ int iteracoes = 0;
 							ant = c.retails.get(i);
 
 						}
-					
+
 						if(c.totalcap > 60){
 							int x =0;
 						}
@@ -534,7 +599,7 @@ int iteracoes = 0;
 
 						}
 						if(c.totalcap > 60){
-						 int x = 0;
+							int x = 0;
 						}
 						Tmin += inst.θ_ij[ant][0];
 						c.travelTime += inst.θ_ij[ant][0];
@@ -595,7 +660,7 @@ int iteracoes = 0;
 					 * Simullated_Annealing(z.clients); s.Annealing_CVRP(rand);
 					 */
 					Util z = new Util();
-				
+
 					z.inicializa(SRt, XZ_Best, inst, t);
 					SimullatedAnnealing_TW s = new SimullatedAnnealing_TW(z.clients,rand);
 					s.SimullatedAnnealing_TW_CVRP(rand,inst);
@@ -607,7 +672,7 @@ int iteracoes = 0;
 						c.retails = new ArrayList<Integer>();
 						c.ha = new double[cl.size()];
 						c.hd = new double[cl.size()];
-						
+
 						int cindex = 0;
 						for (Client integer : cl) {
 							if (integer.id != "0") {
@@ -635,7 +700,7 @@ int iteracoes = 0;
 
 						}
 						if(c.totalcap > 60){
-						 int x = 0;
+							int x = 0;
 						}
 						Tmin += inst.θ_ij[ant][0];
 						c.travelTime += inst.θ_ij[ant][0];
@@ -666,6 +731,108 @@ int iteracoes = 0;
 		return xzk;
 
 	}
+
+	public Sol_XZ algoritmo2_CWTW(Sol_XZ XZ_Best, Parametros inst, Sol_XZ var, Double UB, Random rand)
+			throws GRBException {
+		if (print) {
+			System.out.println();
+			System.out.println("Algorithm 2: (The Lagrangian heuristic algorithm for MP-DAIRPα)");
+			System.out.println();
+		}
+
+		List<Route> lRouteT = new ArrayList<>();
+		for (int t = 1; t < inst.H; t++) {
+
+			List<Integer> SRt = new ArrayList<Integer>();
+			for (int j = 1; j < inst.S; j++) {
+				if (XZ_Best.z.qjt[j][t] > 0) {
+					SRt.add(j);
+				}
+			}
+
+			if (SRt.size() > 0) {
+				Route L_star = new Route();
+				L_star.t = t;
+				/////////////////////////////////////////////////////////////////////////////
+				try {
+					/*
+					 * Util z = new Util(); z.inicializa(SRt,XZ_Best,inst,t);
+					 * Simullated_Annealing s = new
+					 * Simullated_Annealing(z.clients); s.Annealing_CVRP(rand);
+					 */
+					Util z = new Util();
+
+					z.inicializa(SRt, XZ_Best, inst, t);
+					SimullatedAnnealing_TW s = new SimullatedAnnealing_TW(z.clients,rand);
+					s.SimullatedAnnealing_TW_CVRP(rand,inst);
+					// z.imprime_rotas(s.melhor_sol);
+
+					for (ArrayList<Client> cl : s.Sb) {
+						Tour c = new Tour();
+						c.CV = 0;
+						c.retails = new ArrayList<Integer>();
+						c.ha = new double[cl.size()];
+						c.hd = new double[cl.size()];
+
+						int cindex = 0;
+						for (Client integer : cl) {
+							if (integer.id != "0") {
+								c.retails.add(Integer.parseInt(integer.idSIRP));
+								c.ha[cindex] = integer.getTa()+integer.getTw();
+								c.hd[cindex] = integer.getTd();
+								cindex++; 
+							}
+						}
+						L_star.ltour.add(c);
+					}
+					/////////////////////////////////////////////////////////////////////////////
+
+					Double Tmin = 0D;
+					for (Tour c : L_star.ltour) {
+						int ant = 0;
+						c.travelTime = 0;
+						c.totalcap = 0;
+						c.CV = custoCV(XZ_Best, L_star, c, inst, t);
+						for (int i = 0; i < c.retails.size(); i++) {
+							Tmin += inst.θ_ij[ant][c.retails.get(i)];
+							c.travelTime += inst.θ_ij[ant][c.retails.get(i)];
+							c.totalcap += XZ_Best.z.qjt[c.retails.get(i)][t];
+							ant = c.retails.get(i);
+
+						}
+						if(c.totalcap > 60){
+							int x = 0;
+						}
+						Tmin += inst.θ_ij[ant][0];
+						c.travelTime += inst.θ_ij[ant][0];
+						L_star.cost += c.CV;
+					}
+					L_star.nVeic = 1;
+					if (Tmin > inst.τt) {
+						L_star.nVeic = (int) (Math.floor(Tmin / inst.τt) + 1);
+					}
+
+					L_star.cost += L_star.nVeic * inst.ψv[L_star.v];
+
+					lRouteT.add(L_star);
+
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		iteracao++;
+		Sol_XZ xzk = translate(lRouteT, XZ_Best, inst);
+
+		xzk.custo = calculacustoIA(xzk, inst);
+		xzk.custo += calculacustoRP(xzk, inst);
+		xzk.UB = (xzk.custo);
+		// xzk.LB = (LB);
+		// return translate(lRouteT,XZ_Best,inst);
+		return xzk;
+
+	}
+
 
 	public Sol_XZ algoritmo2_MonteCarlo(Sol_XZ XZ_Best, Parametros inst, Sol_XZ var, Double UB, Random rand)
 			throws GRBException, ScriptException {
@@ -817,7 +984,7 @@ int iteracoes = 0;
 		double[][] Ijt = new double[par.S][par.H];
 		double[][][][] Qijt_v = new double[par.S][par.S][par.H][par.V];
 		double[][] qjt = new double[par.S][par.H];
-		
+
 		double[][][] hjtv = new double[par.S][par.H][par.V];
 		double[][][] hd_jtv = new double[par.S][par.H][par.V];
 
@@ -825,7 +992,7 @@ int iteracoes = 0;
 		Ijt = XZ_IA.z.Ijt;
 
 		for (Route r : lroute) {
-			
+
 			int v = 0;
 			double time = 0;
 			for (Tour tour : r.ltour) {
@@ -845,10 +1012,10 @@ int iteracoes = 0;
 					}
 					for (int j = 0; j < tour.retails.size(); j++) {
 						Xijt_v[i][tour.retails.get(j)][r.t][v] = 1;
-						
+
 						hjtv[tour.retails.get(j)][r.t][v] = tour.ha[j];
 						hd_jtv[tour.retails.get(j)][r.t][v] = tour.hd[j];
-						
+
 						Yt_v[r.t][v] = 1;
 						Qijt_v[i][tour.retails.get(j)][r.t][v] = QtdVeic;
 						QtdVeic -= qjt[tour.retails.get(j)][r.t];
@@ -869,7 +1036,7 @@ int iteracoes = 0;
 		ret.z.Qijt_v = (Qijt_v);
 		ret.z.Ijt = (Ijt);
 		ret.z.qjt = (qjt);
-		
+
 		ret.z.hjtv = (hjtv);
 		ret.z.hd_jtv = (hd_jtv);
 		return ret;
@@ -931,6 +1098,7 @@ int iteracoes = 0;
 					// XZ_k = algoritmo2_Simullated_Annealing(XZ_k, inst, new
 					// Sol_XZ(),UB);
 					// XZ_k = algoritmo2_Centroid(XZ_k, inst, new Sol_XZ(),UB);
+
 					switch (inst.alg) {
 					case 2:
 						XZ_k = algoritmo2_Centroid(XZ_k, inst, new Sol_XZ(), UB);
@@ -941,8 +1109,12 @@ int iteracoes = 0;
 					case 4:
 						XZ_k = algoritmo2_MonteCarlo(XZ_k, inst, new Sol_XZ(), UB, rand);
 						break;
+					case 5:
+						XZ_k = algoritmo2_Simullated_AnnealingTW(XZ_k, inst,  new Sol_XZ(), UB, rand);
+						break;
+					case 6:
 					default:
-						XZ_k = algoritmo2(XZ_k, inst, new Sol_XZ(), UB);
+						XZ_k = algoritmo2(XZ_k, inst, new Sol_XZ(), UB,inst.alg);
 						break;
 					}
 
@@ -995,7 +1167,7 @@ int iteracoes = 0;
 							}
 						}
 
-						XZ_k = algoritmo2(XZ_k, inst, new Sol_XZ(), UB);
+						XZ_k = algoritmo2(XZ_k, inst, new Sol_XZ(), UB, inst.alg);
 						// XZ_k = algoritmo2_Centroid(XZ_k, inst, new
 						// Sol_XZ(),UB);
 
@@ -1099,7 +1271,7 @@ int iteracoes = 0;
 						if (model.getVarByName("Q" + "_" + i + "_" + j + "_" + t + "_" + v) != null)
 							Qijt_v[i][j][t][v] = RoundTo2Decimals(model
 									.getVarByName("Q" + "_" + i + "_" + j + "_" + t + "_" + v).get(GRB.DoubleAttr.X));
-						
+
 						if (model.getVarByName("h" + "_" + j + "_" + t + "_" + v) != null)
 							hjtv[j][t][v] = RoundTo2Decimals(model
 									.getVarByName("h" + "_" + j + "_" + t + "_" + v).get(GRB.DoubleAttr.X));
@@ -1173,15 +1345,18 @@ int iteracoes = 0;
 			while (!stack.isEmpty()) {
 				int atual = stack.peek();
 				int dst = -1, idDest = -1;
+				Simullated.Client cliDst = null;
 				boolean minFlag = false;
 				double min = Double.MAX_VALUE;
 
 				for (int i = 0; i < tour.retails.size(); i++) {
 					int c = tour.retails.get(i);
+					Simullated.Client cli = tour.clientes.get(i);
 					if (visitados[i] == 0) {
 						if (min > par.θ_ij[atual][c]) {
 							min = par.θ_ij[atual][c];
 							dst = c;
+							cliDst = cli;
 							minFlag = true;
 							idDest = i;
 						}
@@ -1192,6 +1367,7 @@ int iteracoes = 0;
 					stack.push(dst);
 
 					ret.retails.add(dst);
+					ret.clientes.add(cliDst);
 					ret.travelTime += min;
 
 					System.out.print(dst + "\t");
@@ -1237,6 +1413,9 @@ int iteracoes = 0;
 		Tour ret = new Tour();
 		ret.retails.addAll(ci.retails);
 		ret.retails.addAll(cj.retails);
+		ret.clientes.addAll(ci.clientes);
+		ret.clientes.addAll(cj.clientes);
+
 
 		ret.totalcap = cj.totalcap + ci.totalcap;
 		return ret;
@@ -1426,5 +1605,10 @@ int iteracoes = 0;
 		return ret;
 
 	}
+	public double hourToMinutes(double hour){
 
+		double min = hour*60;
+		return min;
+
+	}
 }
